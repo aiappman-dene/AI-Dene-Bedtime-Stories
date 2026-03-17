@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>AI Dene Bedtime Stories</title>
+
+<link rel="stylesheet" href="style.css">
+
+</head>
+
+<body>
+
+<div class="app">
+
+<h1>🌙 AI Dene Bedtime Stories</h1>
+
+<p class="subtitle">
+Create calming personalised bedtime stories for your child.
+</p>
+
+<p class="tagline">
+Personalised bedtime stories where your child is the hero.
+</p>
+
+<div class="mode" role="tablist">
+  <button id="tabTonight" class="tab active" role="tab" aria-selected="true" aria-controls="tonightForm" onclick="showTonight()">🌙 Tonight's Story</button>
+  <button id="tabHero" class="tab" role="tab" aria-selected="false" aria-controls="heroForm" onclick="showHero()">⭐ My Hero Story</button>
+</div>
+
+<div class="story-guide">
+	<p id="storyGuideText">
+		You decide the adventure for your child.<br>
+		Choose an idea below or write your own.
+	</p>
+	<div class="idea-buttons">
+		<button onclick="setIdea('First day at school')">School</button>
+		<button onclick="setIdea('Playing football and scoring the winning goal')">Football</button>
+		<button onclick="setIdea('A brave superhero saving the day')">Superhero</button>
+		<button onclick="setIdea('Exploring space on a rocket adventure')">Space</button>
+		<button onclick="setIdea('A magical forest with friendly animals')">Magic Forest</button>
+		<button onclick="setIdea('Meeting a kind dragon on an adventure')">Dragon</button>
+	</div>
+</div>
+
+<div id="heroForm">
+	<label>Child Name</label>
+	<input id="heroName" placeholder="Finley" oninput="updateGuide()">
+
+	<label>Child Age</label>
+	<input id="heroAge" placeholder="4">
+
+	<label>Adventure Idea</label>
+	<input id="heroIdea" placeholder="A magic forest adventure">
+
+	<label>Story Length</label>
+	<select id="heroLength" title="Select story length">
+		<option value="short">Short</option>
+		<option value="medium">Medium</option>
+		<option value="long">Long</option>
+	</select>
+
+	<label>Dedication</label>
+	<input id="dedication" placeholder="From Mum ❤️">
+
+	<div class="dedication-buttons">
+	  <button onclick="setDedication('From Mum ❤️')">Mum</button>
+	  <button onclick="setDedication('From Dad ❤️')">Dad</button>
+	  <button onclick="setDedication('From Grandma ❤️')">Grandma</button>
+	  <button onclick="setDedication('From Grandad ❤️')">Grandad</button>
+	</div>
+
+	<button onclick="generateStory()">Create Hero Story</button>
+</div>
+
+<div id="tonightForm" class="tonight hidden">
+	<h3>🌙 Tonight's Story</h3>
+	<p>
+		Generate a calming bedtime story instantly.
+	</p>
+	<button onclick="generateTonight()">Create Tonight's Story</button>
+</div>
+
+<div id="loading" class="loading hidden">
+Creating your bedtime story...
+</div>
+
+<div id="story" class="story"></div>
+
+<div class="controls hidden" id="controls">
+	<button onclick="readStory()">🔊 Read Story</button>
+	<button onclick="saveStory()">⭐ Save Story</button>
+</div>
+
+<div class="bedtime-reminder">
+  <p>Set a nightly bedtime reminder</p>
+	<input type="time" id="bedtimeTime" title="Set bedtime reminder" placeholder="Bedtime">
+  <button onclick="saveBedtime()">Save Bedtime</button>
+</div>
+
+</div>
+
+<script src="app.js"></script>
+
+</body>
+
+</html>
