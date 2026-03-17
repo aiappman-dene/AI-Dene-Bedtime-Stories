@@ -1,0 +1,296 @@
+body {
+  background: #0a1833;
+  color: #fff;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  margin: 0;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+.app {
+  max-width: 480px;
+  margin: 40px auto 0 auto;
+  background: rgba(20, 30, 60, 0.95);
+  border-radius: 18px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+  padding: 32px 24px 24px 24px;
+  position: relative;
+/* Updated from root style.css */
+.bedtime-reminder{
+  z-index: 2;
+}
+
+h1 {
+  text-align: center;
+  font-size: 2.2em;
+  margin-bottom: 0.2em;
+  letter-spacing: 1px;
+}
+
+.subtitle {
+  text-align: center;
+  font-size: 1.1em;
+  margin-bottom: 0.5em;
+  color: #b3c6ff;
+}
+
+.tagline {
+  text-align: center;
+  font-size: 1em;
+  margin-bottom: 1.2em;
+  color: #e0e7ff;
+}
+
+.mode {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 1.2em;
+}
+
+.tab {
+  background: #1e2a4a;
+  color: #fff;
+  border: none;
+  border-radius: 8px 8px 0 0;
+  padding: 10px 24px;
+  font-size: 1.1em;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+  margin-bottom: -2px;
+  outline: none;
+}
+
+.tab.active {
+  background: #4e63a6;
+  color: #fff;
+  font-weight: bold;
+  border-bottom: 2px solid #fff;
+  z-index: 3;
+}
+
+.tab:not(.active):hover {
+  background: #2d3e6b;
+}
+
+.story-guide {
+  background: #162040;
+  border-radius: 10px;
+  padding: 14px 12px 10px 12px;
+  margin-bottom: 1.2em;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.story-guide p {
+  margin: 0 0 8px 0;
+  color: #b3c6ff;
+  font-size: 1em;
+}
+
+.idea-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.idea-buttons button {
+  background: #25325a;
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  padding: 6px 14px;
+  font-size: 0.98em;
+  cursor: pointer;
+  margin-bottom: 4px;
+  transition: background 0.2s;
+}
+
+.idea-buttons button:hover {
+  background: #3a4b7a;
+}
+
+#heroForm, #tonightForm {
+  margin-bottom: 1.2em;
+}
+
+#heroForm label {
+  display: block;
+  margin-top: 10px;
+  margin-bottom: 2px;
+  color: #b3c6ff;
+  font-size: 0.98em;
+}
+
+#heroForm input, #heroForm select {
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: 7px;
+  border: 1px solid #2d3e6b;
+  background: #1e2a4a;
+  color: #fff;
+  font-size: 1em;
+  margin-bottom: 4px;
+  box-sizing: border-box;
+}
+
+#heroForm button {
+  margin-top: 14px;
+  width: 100%;
+  background: #3a4b7a;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 0;
+  font-size: 1.1em;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+#heroForm button:hover {
+  background: #4e63a6;
+}
+
+.dedication-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.dedication-buttons button {
+  background: #25325a;
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  padding: 5px 12px;
+  font-size: 0.95em;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.dedication-buttons button:hover {
+  background: #3a4b7a;
+}
+
+#tonightForm {
+  background: #162040;
+  border-radius: 10px;
+  padding: 14px 12px 10px 12px;
+  margin-bottom: 1.2em;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+#tonightForm h3 {
+  margin-top: 0;
+  color: #e0e7ff;
+}
+
+#tonightForm button {
+  width: 100%;
+  background: #3a4b7a;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 0;
+  font-size: 1.1em;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+#tonightForm button:hover {
+  background: #4e63a6;
+}
+
+.loading {
+  text-align: center;
+  font-size: 1.1em;
+  color: #b3c6ff;
+  margin-bottom: 1.2em;
+}
+
+.story {
+  background: #1e2a4a;
+  border-radius: 10px;
+  padding: 18px 14px;
+  margin-bottom: 1.2em;
+  font-size: 1.13em;
+  color: #fff;
+  min-height: 80px;
+  white-space: pre-line;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.controls {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-bottom: 1.2em;
+}
+
+.controls button {
+  background: #25325a;
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  padding: 8px 18px;
+  font-size: 1em;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.controls button:hover {
+  background: #3a4b7a;
+}
+
+.bedtime-reminder {
+  background: #162040;
+  border-radius: 10px;
+  padding: 12px 12px 10px 12px;
+  margin-top: 1.2em;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  text-align: center;
+}
+
+.bedtime-reminder input[type="time"] {
+  background: #1e2a4a;
+  color: #fff;
+  border: 1px solid #2d3e6b;
+  border-radius: 7px;
+  padding: 6px 10px;
+  font-size: 1em;
+  margin-right: 8px;
+}
+
+.bedtime-reminder button {
+  background: #3a4b7a;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 16px;
+  font-size: 1em;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.bedtime-reminder button:hover {
+  background: #4e63a6;
+}
+
+/* Animated stars background */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: transparent;
+  animation: stars 60s linear infinite;
+}
+
+@keyframes stars {
+  0% { background-position: 0 0, 0 0, 0 0; }
+  100% { background-position: 1000px 500px, 800px 400px, 600px 300px; }
+}
+
+.hidden {
+  display: none !important;
+}
