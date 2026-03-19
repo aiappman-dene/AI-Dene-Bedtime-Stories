@@ -1,11 +1,6 @@
-// Story length guide
-const lengthGuide = {
-  short: "600-900 words",
-  medium: "1000-1600 words",
-  long: "1800-2500 words"
-};
 require("dotenv").config();
 const express = require("express");
+const fetch = require("node-fetch");
 
 const app = express();
 
@@ -36,39 +31,23 @@ app.post("/generate", async (req, res) => {
   const prompt = `
 You are a world-class children's bedtime storyteller.
 
-Write a HIGH-QUALITY bedtime story.
+Write a calming bedtime story.
 
-Child details:
-- Name: ${name}
-- Age: ${age}
+Child:
+Name: ${name}
+Age: ${age}
 
 Story idea:
 ${idea}
 
-STORY REQUIREMENTS:
-- Calm, magical, and soothing
-- No fear or danger
-- Rich descriptions and detail
-- Clear beginning, middle, and end
-- Gentle bedtime pacing
+Rules:
+- Gentle and magical
+- No danger or fear
+- Soothing tone
+- Clear beginning, middle, end
+- Ends with falling asleep peacefully
 
-STRUCTURE:
-1. Introduction
-2. Journey
-3. Resolution
-4. Calm sleepy ending
-
-LENGTH REQUIREMENT:
-${lengthGuide[length]}
-
-CRITICAL:
-- Stay strictly within the word range provided
-- Do not exceed the maximum length
-- Do not go under the minimum length
-- Do NOT rush the story
-- Fully expand scenes with detail and emotion
-
-END the story with the child peacefully falling asleep.
+Length: ${length}
 `;
 
   try {

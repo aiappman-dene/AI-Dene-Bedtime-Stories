@@ -1,39 +1,3 @@
-function nextPage() {
-  if (currentPage < pages.length - 1) {
-    showPage(currentPage + 1);
-  }
-}
-
-function prevPage() {
-  if (currentPage > 0) {
-    showPage(currentPage - 1);
-  }
-}
-function showPage(index) {
-  if (index < 0 || index >= pages.length) return;
-
-  currentPage = index;
-
-  document.getElementById("storyPage").innerText = pages[currentPage];
-  document.getElementById("pageIndicator").innerText =
-    `Page ${currentPage + 1} of ${pages.length}`;
-}
-function splitIntoPages(text) {
-  const words = text.split(" ");
-  const pageSize = 120; // words per page
-
-  let result = [];
-
-  for (let i = 0; i < words.length; i += pageSize) {
-    result.push(words.slice(i, i + pageSize).join(" "));
-  }
-
-  return result;
-}
-let pages = [];
-let currentPage = 0;
-alert("JS LOADED");
-
 function showHero() {
   const heroForm = document.getElementById("heroForm");
   const tonightForm = document.getElementById("tonightForm");
@@ -101,13 +65,8 @@ async function handleGenerate(mode) {
     });
 
     const data = await response.json();
-    // Paginate and display story
-    pages = splitIntoPages(data.story || "No story was returned.");
-    document.getElementById("storyContainer").classList.remove("hidden");
-    showPage(0);
-    document.getElementById("storyContainer").scrollIntoView({
-      behavior: "smooth"
-    });
+    storyOutput.innerText = data.story || "No story was returned.";
+    storyOutput.scrollIntoView({ behavior: "smooth" });
   } catch (error) {
     console.error(error);
     storyOutput.innerText = "Something went wrong, please try again.";

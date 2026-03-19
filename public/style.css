@@ -1,31 +1,56 @@
-/* Story page container for pagination */
-#storyPage {
-  max-width: 600px;
-  margin: 20px auto;
-  font-size: 18px;
-  line-height: 1.6;
-  padding: 20px;
-  background: #fff8e7;
-  border-radius: 12px;
-}
 .hidden {
   display: none;
 }
 
 body {
-  font-family: Arial;
+  font-family: 'Segoe UI', sans-serif;
+  background: linear-gradient(to bottom, #1e2a38, #0d1b2a);
+  color: white;
   text-align: center;
   padding: 20px;
+  margin: 0;
 }
 
-input {
+h1 {
+  font-size: 28px;
+  margin-bottom: 10px;
+}
+
+p {
+  opacity: 0.8;
+}
+
+input, select {
   display: block;
   margin: 10px auto;
-  padding: 10px;
+  padding: 12px;
+  border-radius: 8px;
+  border: none;
+  width: 80%;
+  max-width: 300px;
 }
 
 button {
-  padding: 10px 20px;
+  background: #ffb703;
+  color: black;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 10px;
   margin: 10px;
+  font-weight: bold;
   cursor: pointer;
+}
+
+button:hover {
+  background: #ffd166;
+}
+
+#storyPage {
+  background: #fefae0;
+  color: black;
+  padding: 20px;
+  border-radius: 12px;
+  margin: 20px auto;
+  max-width: 600px;
+  line-height: 1.6;
 }
