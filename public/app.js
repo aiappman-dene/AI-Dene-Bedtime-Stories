@@ -60,6 +60,12 @@ const firebaseApp = initializeApp(firebaseConfig);
 const auth = getAuth(firebaseApp);
 const db = getFirestore(firebaseApp);
 
+// Surface any top-level module failure — if this fires, the window.* exports
+// at the bottom of the file never ran and every inline onclick is a no-op.
+window.onerror = function (msg, url, line, col, error) {
+  console.error("Global error:", msg, error);
+};
+
 // =============================================================================
 // App State
 // =============================================================================

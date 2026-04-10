@@ -368,17 +368,8 @@ app.use(
   })
 );
 
-// Rate limiting
-app.use(
-  rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 60,
-    message: { error: "Too many requests. Please try again in a few minutes." },
-    standardHeaders: true,
-    legacyHeaders: false,
-  })
-);
-
+// Rate limiting — applied ONLY to API routes below, never to static assets.
+// Static files (app.js, CSS, HTML) must always load without limit-based throttling.
 const generateLimiter = buildAiLimiter({
   windowMs: GENERATE_LIMIT_WINDOW_MS,
   max: GENERATE_LIMIT_MAX,
