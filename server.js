@@ -7,7 +7,7 @@ import express from "express";
 import cors from "cors";
 import "dotenv/config";
 import helmet from "helmet";
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { applicationDefault, cert, getApps, initializeApp as initializeAdminApp } from "firebase-admin/app";
 import { getAuth as getAdminAuth } from "firebase-admin/auth";
 import { body, validationResult } from "express-validator";
@@ -38,7 +38,8 @@ import {
 // =============================================================================
 
 const PORT = process.env.PORT || 3000;
-const API_KEY = process.env.ANTHROPIC_API_KEY;
+const API_KEY = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY;
+const AI_ENABLED = !!API_KEY;
 const NODE_ENV = process.env.NODE_ENV || "development";
 const AI_PIPELINE_PROFILE = process.env.AI_PIPELINE_PROFILE === "full" ? "full" : "lean";
 const USE_FULL_AI_PIPELINE = AI_PIPELINE_PROFILE === "full";
@@ -55,18 +56,22 @@ const GENERATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 const GENERATE_LIMIT_MAX = Number(process.env.GENERATE_RATE_LIMIT_MAX || 12);
 const POLISH_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 const POLISH_LIMIT_MAX = Number(process.env.POLISH_RATE_LIMIT_MAX || 20);
+const PUBLIC_DIR = path.join(process.cwd(), "public");
 
-if (!API_KEY) {
-  console.error("FATAL: ANTHROPIC_API_KEY is not set in .env — server cannot start.");
-  process.exit(1);
+function hasFirebaseAdminConfig() {
+  const hasServiceAccount = FIREBASE_PROJECT_ID && FIREBASE_CLIENT_EMAIL && FIREBASE_PRIVATE_KEY;
+  const hasApplicationDefault = !!process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  const hasProjectIdOnly = !!FIREBASE_PROJECT_ID;
+  return hasServiceAccount || hasApplicationDefault || hasProjectIdOnly;
+}
+
+if (!AI_ENABLED) {
+  console.warn("AI key not configured. Server will start in procedural-only mode until ANTHROPIC_API_KEY or CLAUDE_API_KEY is set.");
 }
 
 if (REQUIRE_AUTH_FOR_AI_ROUTES) {
-  const hasServiceAccount = FIREBASE_PROJECT_ID && FIREBASE_CLIENT_EMAIL && FIREBASE_PRIVATE_KEY;
-  const hasApplicationDefault = !!process.env.GOOGLE_APPLICATION_CREDENTIALS;
-
-  if (!hasServiceAccount && !hasApplicationDefault) {
-    console.error("FATAL: REQUIRE_AUTH_FOR_AI_ROUTES=true requires Firebase Admin credentials via FIREBASE_PROJECT_ID/FIREBASE_CLIENT_EMAIL/FIREBASE_PRIVATE_KEY or GOOGLE_APPLICATION_CREDENTIALS.");
+  if (!hasFirebaseAdminConfig()) {
+    console.error("FATAL: REQUIRE_AUTH_FOR_AI_ROUTES=true requires Firebase Admin configuration via GOOGLE_APPLICATION_CREDENTIALS, full service-account env vars, or FIREBASE_PROJECT_ID for token verification.");
     process.exit(1);
   }
 }
@@ -117,6 +122,7 @@ function logEvent(msg) {
 function getFirebaseAdminInstance() {
   if (!getApps().length) {
     const hasServiceAccount = FIREBASE_PROJECT_ID && FIREBASE_CLIENT_EMAIL && FIREBASE_PRIVATE_KEY;
+    const hasApplicationDefault = !!process.env.GOOGLE_APPLICATION_CREDENTIALS;
 
     if (hasServiceAccount) {
       initializeAdminApp({
@@ -126,11 +132,17 @@ function getFirebaseAdminInstance() {
           privateKey: FIREBASE_PRIVATE_KEY,
         }),
       });
-    } else {
+    } else if (hasApplicationDefault) {
       initializeAdminApp({
         credential: applicationDefault(),
         projectId: FIREBASE_PROJECT_ID || undefined,
       });
+    } else if (FIREBASE_PROJECT_ID) {
+      initializeAdminApp({
+        projectId: FIREBASE_PROJECT_ID,
+      });
+    } else {
+      throw new Error("Firebase Admin configuration is missing.");
     }
   }
 
@@ -167,7 +179,7 @@ function buildAiLimiter({ windowMs, max, routeLabel }) {
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator(req) {
-      return req.authUser?.uid ? `uid:${req.authUser.uid}` : `ip:${req.ip}`;
+      return req.authUser?.uid ? `uid:${req.authUser.uid}` : `ip:${ipKeyGenerator(req.ip)}`;
     },
     handler(req, res) {
       logEvent(`Rate limit hit on ${routeLabel} from ${req.ip}`);
@@ -224,6 +236,7 @@ async function runDeliveryQaPass(storyText, dialect) {
         prompt: qaPrompt,
         maxTokens: deliveryBudget,
         temperature: 0.1,
+        model: CLAUDE_MODEL_SONNET,
       })
     );
   }
@@ -239,17 +252,41 @@ async function runDeliveryQaPass(storyText, dialect) {
 // =============================================================================
 
 const CLAUDE_API_URL = "https://api.anthropic.com/v1/messages";
-const CLAUDE_MODEL = "claude-haiku-4-5-20251001";
+const CLAUDE_MODEL_SONNET = "claude-sonnet-4-6";
+const CLAUDE_MODEL_HAIKU = "claude-haiku-4-5-20251001";
+const CLAUDE_MODEL_DEFAULT = CLAUDE_MODEL_HAIKU;
 const API_VERSION = "2023-06-01";
 
-async function callClaude({ system, prompt, maxTokens = 1200, temperature = 0.5 }) {
+// Tier model + creative temperature by story size.
+// Hero mode and long/medium lengths get Sonnet for Disney-grade prose.
+// Short stories stay on Haiku for speed + cost.
+function getModelConfig({ mode, length } = {}) {
+  if (mode === "hero") {
+    return { model: CLAUDE_MODEL_SONNET, temperature: 0.85 };
+  }
+  switch (length) {
+    case "long":
+      return { model: CLAUDE_MODEL_SONNET, temperature: 0.8 };
+    case "medium":
+      return { model: CLAUDE_MODEL_SONNET, temperature: 0.75 };
+    case "short":
+    default:
+      return { model: CLAUDE_MODEL_HAIKU, temperature: 0.7 };
+  }
+}
+
+async function callClaude({ system, prompt, maxTokens = 1200, temperature = 0.5, model }) {
+  if (!AI_ENABLED) {
+    throw new Error("AI provider is not configured.");
+  }
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 30000);
 
   try {
     // Build request body — system prompt is separate from messages
     const requestBody = {
-      model: CLAUDE_MODEL,
+      model: model || CLAUDE_MODEL_DEFAULT,
       max_tokens: maxTokens,
       temperature,
       messages: [{ role: "user", content: prompt }],
@@ -301,6 +338,20 @@ async function callClaudeWithRetry(options, retries = 2) {
   }
 }
 
+function isAiProviderUnavailableError(error) {
+  const message = String(error?.message || error || "").toLowerCase();
+  return (
+    message.includes("not configured") ||
+    message.includes("credit balance is too low") ||
+    message.includes("rate limit") ||
+    message.includes("temporarily unavailable") ||
+    message.includes("overloaded") ||
+    message.includes("service unavailable") ||
+    message.includes("timed out") ||
+    message.includes("aborterror")
+  );
+}
+
 // =============================================================================
 // Express app
 // =============================================================================
@@ -335,8 +386,11 @@ app.use(
           "https://*.googleapis.com",
           "https://*.firebaseio.com",
           "https://*.firebaseapp.com",
+          "https://*.firebasestorage.app",
           "https://identitytoolkit.googleapis.com",
+          "https://securetoken.googleapis.com",
           "https://firestore.googleapis.com",
+          "https://firebaseinstallations.googleapis.com",
         ],
         frameSrc: ["'self'", "https://*.firebaseapp.com", "https://*.firebaseauth.com"],
         styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
@@ -355,11 +409,11 @@ app.use(
 app.use(express.json({ limit: "10kb" }));
 
 // CORS — scoped to API routes only.
-// Applying cors() globally blocks same-origin static assets (app.js, CSS,
-// fonts) with HTTP 500 when the browser's Origin header isn't in
-// ALLOWED_ORIGINS, because Express's default error handler turns the thrown
-// CORS error into a 500. Static files are same-origin and don't need CORS at
-// all; only the JSON API routes below opt in via corsMiddleware.
+// Applying CORS globally blocks same-origin static assets (app.js, CSS, fonts)
+// with HTTP 500 when the request's Origin header isn't in ALLOWED_ORIGINS,
+// because Express's default error handler converts the thrown CORS error to 500.
+// Static file requests are same-origin and don't need CORS at all; only the
+// JSON API routes below need to opt in.
 const corsMiddleware = cors({
   origin(origin, callback) {
     if (!origin || ALLOWED_ORIGINS.includes(origin)) {
@@ -392,29 +446,23 @@ app.use((req, res, next) => {
 });
 
 // Static files — after security middleware
-app.use(express.static("public", {
-  etag: false,
-  setHeaders(res, filePath) {
-    if (/\.(html|js|css)$/i.test(filePath)) {
-      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-      res.setHeader("Pragma", "no-cache");
-      res.setHeader("Expires", "0");
-      res.setHeader("Surrogate-Control", "no-store");
-    }
-  },
-}));
+app.use(express.static(PUBLIC_DIR));
 
 app.get("/", (req, res) => {
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   res.setHeader("Pragma", "no-cache");
   res.setHeader("Expires", "0");
   res.setHeader("Surrogate-Control", "no-store");
-  res.sendFile(path.resolve("public/index.html"));
+  res.sendFile(path.join(PUBLIC_DIR, "index.html"));
 });
 
 // Health check
 app.get("/health", (req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
+  res.json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    aiEnabled: AI_ENABLED,
+  });
 });
 
 // =============================================================================
@@ -450,6 +498,7 @@ app.post(
         prompt: grammarPrompt,
         maxTokens: 1200,
         temperature: 0.2,
+        model: CLAUDE_MODEL_SONNET,
       });
 
       const finalStory = USE_FULL_AI_PIPELINE
@@ -459,6 +508,11 @@ app.post(
       logEvent("Polish endpoint: complete");
       res.json({ story: finalStory });
     } catch (error) {
+      if (isAiProviderUnavailableError(error)) {
+        logEvent(`Polish endpoint: AI unavailable, returning original story unchanged. Reason: ${error.message}`);
+        return res.json({ story: req.body?.story || "" });
+      }
+
       logEvent(`Polish endpoint error: ${error.message}`);
       return res.status(422).json({ error: "Story could not be polished to quality standard." });
     }
@@ -565,6 +619,10 @@ app.post(
         dayBeats: cleanBeats,
         dayMood: cleanMood,
       };
+      // Tiered model selection: Sonnet for hero/long/medium, Haiku for short.
+      const modelConfig = getModelConfig({ mode, length });
+      logEvent(`Model config for "${cleanName}": ${modelConfig.model} @ temp ${modelConfig.temperature}`);
+
       const storyMaxTokens = getStoryTokenBudget(length, "story");
       const editorMaxTokens = getStoryTokenBudget(length, "editor");
       const validatorMaxTokens = getStoryTokenBudget(length, "validator");
@@ -589,7 +647,8 @@ app.post(
           system: STORY_SYSTEM_PROMPT,
           prompt: storyPrompt,
           maxTokens: storyMaxTokens,
-          temperature: 0.55,
+          temperature: modelConfig.temperature,
+          model: modelConfig.model,
         });
 
         logEvent(`Stage 1 complete (generate) for "${cleanName}" [attempt ${attempt}]`);
@@ -602,6 +661,7 @@ app.post(
           prompt: grammarPrompt,
           maxTokens: editorMaxTokens,
           temperature: 0.2,
+          model: modelConfig.model,
         });
 
         if (!USE_FULL_AI_PIPELINE) {
@@ -616,6 +676,7 @@ app.post(
           prompt: titlePrompt,
           maxTokens: titleMaxTokens,
           temperature: 0.4,
+          model: modelConfig.model,
         });
 
         logEvent(`Stage 2 complete (edit + title) for "${cleanName}" [attempt ${attempt}]`);
@@ -640,6 +701,7 @@ app.post(
           prompt: validationPrompt,
           maxTokens: validatorMaxTokens,
           temperature: 0.1,
+          model: modelConfig.model,
         });
 
         logEvent(`Stage 3 complete (validate) for "${cleanName}" [attempt ${attempt}]`);
@@ -686,6 +748,11 @@ app.post(
     } catch (error) {
       logEvent(`SERVER ERROR: ${error.message}\n${error.stack}`);
 
+      if (isAiProviderUnavailableError(error)) {
+        logEvent(`Generate endpoint: AI unavailable, instructing client to use procedural fallback. Reason: ${error.message}`);
+        return res.json({ fallback: true, reason: "ai_unavailable" });
+      }
+
       if (error.name === "AbortError") {
         return res.status(504).json({ error: "Story generation timed out. Please try again." });
       }
@@ -713,7 +780,7 @@ if (NODE_ENV === "production" && process.env.SSL_KEY_PATH && process.env.SSL_CER
 } else {
   const server = app.listen(PORT, () => {
     logEvent(`Server running on port ${PORT} (${NODE_ENV})`);
-    console.log(`DreamTalez server running at http://localhost:${PORT}`);
+    console.log(`Server running on port ${PORT}`);
   });
   server.on("error", handleServerStartupError);
 }
