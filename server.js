@@ -503,7 +503,7 @@ app.post(
       const polishPrompt = polishMode === "rewrite"
         ? story
         : buildGrammarPrompt(story, cleanDialect);
-      const polishTemperature = polishMode === "rewrite" ? 0.8 : 0.2;
+      const polishTemperature = polishMode === "rewrite" ? 1.0 : 0.2;
       const polishMaxTokens = polishMode === "rewrite" ? 2000 : 1200;
 
       const polished = await callClaudeWithRetry({
