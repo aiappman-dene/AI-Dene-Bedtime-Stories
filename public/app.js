@@ -6484,7 +6484,11 @@ async function handleGenerate(mode) {
           const polishResponse = await fetch("/polish", {
             method: "POST",
             headers: await buildAuthenticatedJsonHeaders(),
-            body: JSON.stringify({ story: rawFallback, dialect: getCurrentDialect() }),
+            body: JSON.stringify({
+              story: rawFallback,
+              dialect: getCurrentDialect(),
+              mode: mode === "tonight" ? "rewrite" : "edit",
+            }),
           });
           if (polishResponse.ok) {
             const polishData = await polishResponse.json();

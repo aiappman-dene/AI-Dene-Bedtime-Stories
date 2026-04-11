@@ -19,6 +19,7 @@ import {
   EDITOR_SYSTEM_PROMPT,
   VALIDATOR_SYSTEM_PROMPT,
   DELIVERY_QA_SYSTEM_PROMPT,
+  REWRITE_SYSTEM_PROMPT,
   buildStoryPrompt,
   buildGrammarPrompt,
   buildValidationPrompt,
@@ -479,6 +480,7 @@ app.post(
   [
     body("story").isString().isLength({ min: 10, max: 5000 }).trim(),
     body("dialect").optional().custom(isSupportedStoryLocale),
+    body("mode").optional().isIn(["edit", "rewrite"]),
   ],
   async (req, res) => {
     try {
@@ -487,17 +489,28 @@ app.post(
         return res.status(400).json({ error: "Invalid story text." });
       }
 
-      const { story, dialect } = req.body;
+      const { story, dialect, mode } = req.body;
       const cleanDialect = normalizeStoryLocale(dialect);
+      const polishMode = mode === "rewrite" ? "rewrite" : "edit";
 
-      logEvent("Polish endpoint: running editor pass on procedural story");
+      logEvent(`Polish endpoint: ${polishMode} pass on procedural story`);
 
-      const grammarPrompt = buildGrammarPrompt(story, cleanDialect);
+      // Rewrite mode = aggressive Disney-grade rewrite of a rough procedural
+      // draft. Edit mode = conservative grammar/flow pass on an AI story.
+      const polishSystem = polishMode === "rewrite"
+        ? REWRITE_SYSTEM_PROMPT
+        : EDITOR_SYSTEM_PROMPT;
+      const polishPrompt = polishMode === "rewrite"
+        ? story
+        : buildGrammarPrompt(story, cleanDialect);
+      const polishTemperature = polishMode === "rewrite" ? 0.8 : 0.2;
+      const polishMaxTokens = polishMode === "rewrite" ? 2000 : 1200;
+
       const polished = await callClaudeWithRetry({
-        system: EDITOR_SYSTEM_PROMPT,
-        prompt: grammarPrompt,
-        maxTokens: 1200,
-        temperature: 0.2,
+        system: polishSystem,
+        prompt: polishPrompt,
+        maxTokens: polishMaxTokens,
+        temperature: polishTemperature,
         model: CLAUDE_MODEL_SONNET,
       });
 
