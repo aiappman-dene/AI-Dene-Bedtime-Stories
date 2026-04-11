@@ -53,7 +53,10 @@ const firebaseConfig = {
   apiKey: "AIzaSyAoNxcJTiqah_Ig_1THapgWIYY3Y-nPWj8",
   authDomain: "dreamtalez.firebaseapp.com",
   projectId: "dreamtalez",
+  storageBucket: "dreamtalez.firebasestorage.app",
+  messagingSenderId: "219771634733",
   appId: "1:219771634733:web:007c920a5442a4d19c24a4",
+  measurementId: "G-Y9MQTMYQ5C",
 };
 
 const firebaseApp = initializeApp(firebaseConfig);
@@ -65,6 +68,12 @@ const db = getFirestore(firebaseApp);
 window.onerror = function (msg, url, line, col, error) {
   console.error("Global error:", msg, error);
 };
+window.addEventListener("error", (e) => {
+  console.error("[DreamTalez top-level error]", e.error || e.message);
+});
+window.addEventListener("unhandledrejection", (e) => {
+  console.error("[DreamTalez unhandled rejection]", e.reason);
+});
 
 // =============================================================================
 // App State
@@ -775,6 +784,53 @@ const worldStoryKits = {
       closingMagicOptions: [
         "Before returning, {name} received {gift}, like a small piece of the night sky to carry home.",
         "As the adventure ended, {gift} was placed gently in {name}'s hands like a calm little star.",
+      ],
+    },
+  flying: {
+      storyShapes: ["quest", "discovery", "helper"],
+      openings: [
+        "The evening sky felt wide, calm, and full of gentle possibilities tonight.",
+        "A soft path of wind seemed to unfurl above the sleeping world, inviting a peaceful flying adventure.",
+      ],
+      incitingMoments: [
+        "A quiet current of air curled ahead, as though the sky itself were inviting {name} onward.",
+        "A silver ribbon of wind drifted across the night, asking to be followed in the gentlest way.",
+      ],
+      clueMoments: [
+        "The sky offered clues in drifting clouds, moonlit currents, and the peaceful world far below.",
+        "Each soft turn of the wind hinted kindly at where the next part of the journey should go.",
+      ],
+      revealMoments: [
+        "There, shining softly along the sky-path, was {discovery}, as though the wind had been carrying it all along.",
+        "When {name} reached {discovery}, the whole flying journey suddenly made calm, perfect sense.",
+      ],
+      resolutionMoments: [
+        "With steady calm, {name} followed the sky's gentle guidance and helped the journey settle into exactly the right ending.",
+        "What had seemed wide and mysterious in the sky soon became clear through patience, kindness, and careful flying.",
+      ],
+      quietCelebrations: [
+        "Far below, the world remained peaceful, but everything seemed to glow with a quiet sort of thanks.",
+        "The wind softened around them, like the sky's own calm applause.",
+      ],
+      homecomingMoments: [
+        "The way home drifted on a soft current of air, easy and silver in the moonlight.",
+        "By the time home came near again, the whole sky felt like a gentle memory waiting to stay.",
+      ],
+      gentleActionOptions: [
+        "{name} and {companion} followed the quiet wind-path together, gliding one gentle turn at a time.",
+        "Keeping close to {companion}, {name} flew softly onward, letting the calm sky show the way.",
+      ],
+      discoveryOptions: [
+        "Soon, {name} and {companion} found {discovery}, drifting like a secret the wind had carefully kept.",
+        "Along the soft sky-path, {discovery} appeared quietly, ready to help the journey make sense.",
+      ],
+      goalPayoffOptions: [
+        "Using {discovery} and the gentle guidance of the wind, {name} and {companion} were able to {goal}.",
+        "Once {discovery} revealed the sky's quiet meaning, {name} and {companion} knew exactly how to {goal}.",
+      ],
+      closingMagicOptions: [
+        "Before drifting home, {name} received {gift}, and it felt like a little piece of the sky's calm to carry back.",
+        "As the flying adventure ended, {gift} stayed with {name} like a soft reminder of wind, moonlight, and wonder.",
       ],
     },
   family: {
@@ -1541,6 +1597,38 @@ const themeWorlds = {
     discoveries: ["a map of sleepy constellations", "a lantern made of moon dust"],
     challenge: "a floating path of quiet asteroids",
     goal: "deliver a lullaby light to a sleepy planet",
+    pronoun: "they",
+  },
+  flying: {
+    settings: [
+      "a warm twilight sky above golden dunes where sleepy camels wandered below",
+      "a moonlit sky above the ocean where dolphins leapt and whales sang softly below",
+      "a calm silver-blue sky above snowy mountains where quiet eagles glided on the wind",
+      "a peaceful evening sky above a jungle canopy where parrots tucked themselves in for the night",
+      "a soft cloud path above green fields where sheep and little horses looked tiny below",
+    ],
+    companions: [
+      "a gentle little cloud bird",
+      "a friendly moon-kite with a silver tail",
+      "a calm starling guide who knew the wind paths",
+    ],
+    discoveries: [
+      "a glowing feather-map that shimmered in the air",
+      "a ribbon of wind curling toward the gentlest way forward",
+      "a tiny sky-lantern that brightened whenever the route felt right",
+    ],
+    challenge: [
+      "a drifting ribbon of cloud that needed careful steering",
+      "a swirl of evening wind above the quiet world below",
+      "a long curve of sky where the way forward was hidden behind silver clouds",
+    ],
+    goal: [
+      "follow the wind to a moonlit oasis before the camels settled to sleep",
+      "glide above the waves and help a little whale find its family song",
+      "follow the sky path until the parrots' treetop lanterns glowed below",
+      "carry a gentle star-message across the mountains before the last light faded",
+      "circle over the fields and find the glowing place where the night breeze wanted them to land",
+    ],
     pronoun: "they",
   },
   school: {
@@ -2534,6 +2622,7 @@ const worldSuitability = {
   // Boy-leaning / action
   superheroes:   { minAge: 4,  maxAge: 12, audience: "any" },
   space:         { minAge: 4,  maxAge: 12, audience: "any" },
+  flying:        { minAge: 4,  maxAge: 12, audience: "any" },
   pirates:       { minAge: 4,  maxAge: 12, audience: "any" },
   cars:          { minAge: 2,  maxAge: 10, audience: "any" },
   robots:        { minAge: 3,  maxAge: 12, audience: "any" },
@@ -2554,7 +2643,8 @@ const worldSuitability = {
 // Expanded based on common phrasings parents actually use for kids aged 2–12.
 const themeAliases = {
   dinosaurs:    ["dinosaur", "dino", "t-rex", "trex", "triceratops", "raptor", "stegosaurus", "brontosaurus", "pterodactyl", "fossil", "jurassic"],
-  space:        ["astronaut", "rocket", "planet", "galaxy", "spaceship", "nasa", "satellite", "alien", "stars", "constellation", "meteor", "comet", "flying", "fly", "soaring", "soar"],
+  space:        ["astronaut", "rocket", "planet", "galaxy", "spaceship", "nasa", "satellite", "alien", "stars", "constellation", "meteor", "comet"],
+  flying:       ["fly", "flying", "glide", "gliding", "soar", "soaring", "wings", "sky flight", "sky adventure", "flying adventure"],
   ocean:        ["sea", "beach", "waves", "fish", "coral", "shells", "seaside", "submarine", "whale", "shark", "octopus", "turtle", "jellyfish", "starfish", "dolphin", "dolphins", "swim", "swimming", "underwater"],
   school:       ["school", "classroom", "teacher", "playground", "first day", "first day at school", "school bus", "backpack", "lunch box", "lesson", "reading time"],
   family:       ["family", "sibling", "helping a sibling", "share", "sharing", "learning to share", "grandparents", "visiting grandparents", "new friend", "making a new friend", "sleepover", "first sleepover"],
@@ -2563,7 +2653,7 @@ const themeAliases = {
   sweets:       ["candy", "candy land", "cupcake", "cupcakes", "bakery", "ice cream", "chocolate", "factory", "baking", "cake", "picnic", "tea party", "tea"],
   mystery:      ["mystery", "classroom mystery", "hidden key", "secret door", "missing item", "missing", "lost something", "finding something", "secret garden", "puzzle", "clue", "map", "hidden place"],
   performance:  ["dance", "dancing", "ballet", "singing", "talent show", "performer", "performance", "music", "playing music", "stage show", "stage", "show and tell"],
-  travel:       ["trip", "journey", "plane", "flying in a plane", "boat", "boat trip", "bike", "riding a bike", "bus", "bus adventure", "helicopter", "ride", "hot air balloon", "magical train ride", "fly", "glide", "gliding"],
+  travel:       ["trip", "journey", "plane", "flying in a plane", "boat", "boat trip", "bike", "riding a bike", "bus", "bus adventure", "helicopter", "ride", "hot air balloon", "magical train ride"],
   toys:         ["toy", "toys", "toy adventure", "magical toy", "building a magical toy", "mini world", "create a mini world", "hideout", "secret hideout", "treehouse", "playroom"],
   feelings:     ["brave", "learning to be brave", "overcoming fear", "fear", "kind", "being kind", "helping someone", "saying sorry", "sorry", "feeling proud", "proud", "trying something new", "new thing", "emotions", "understanding emotions"],
   weather:      ["gentle rain", "walking in gentle rain", "rain", "rainbow", "rainbows", "chasing rainbows", "snow", "snow day", "snow day adventure", "snowman", "building a snowman", "windy day", "wind", "storm", "magical storm", "lightning", "watching lightning", "fog", "foggy morning", "foggy mystery morning", "autumn leaves", "beach day", "sunny beach day", "seaside weather"],
@@ -2723,6 +2813,11 @@ const QUICK_WISH_ACTION_WORDS = new Set([
   "float", "floating", "ride", "riding", "sail", "sailing", "zoom", "zooming",
 ]);
 
+const QUICK_WISH_FIDELITY_STOP_WORDS = new Set([
+  "see", "seeing", "look", "looking", "watch", "watching", "gentle", "calm",
+  "magical", "magic", "quiet", "night", "sky", "story", "adventure", "beautiful",
+]);
+
 function extractQuickWishFocusTerms(wish) {
   return String(wish || "")
     .toLowerCase()
@@ -2732,9 +2827,29 @@ function extractQuickWishFocusTerms(wish) {
     .filter((token) => !QUICK_WISH_ACTION_WORDS.has(token));
 }
 
+function extractQuickWishFidelityTerms(wish) {
+  return [...new Set(
+    extractQuickWishFocusTerms(wish)
+      .filter((token) => !QUICK_WISH_FIDELITY_STOP_WORDS.has(token))
+  )];
+}
+
+function isGenericFlyingWish(wish = "") {
+  const lower = normalizeStoryIdea(wish).toLowerCase();
+  if (!/\b(fly|flying|glide|gliding|soar|soaring)\b/.test(lower)) return false;
+  if (/\b(rocket|astronaut|spaceship|space|planet|galaxy|moon|star|plane|airplane|aeroplane|helicopter|balloon)\b/.test(lower)) {
+    return false;
+  }
+  return true;
+}
+
 function findQuickWishMatchedWorld(wish, child = {}) {
   const normalizedWish = String(wish || "").trim().toLowerCase();
   if (!normalizedWish) return null;
+
+  if (isGenericFlyingWish(normalizedWish)) {
+    return themeWorlds.flying;
+  }
 
   const focusTerms = extractQuickWishFocusTerms(normalizedWish);
   if (focusTerms.length) {
@@ -3251,9 +3366,16 @@ function detectProceduralAssemblyIssues(story, { name, discovery, goal, subj, cu
     const ideaMentions = [ideaText, ...extractQuickWishFocusTerms(ideaText)]
       .filter(Boolean)
       .some((term) => normalizedStory.includes(term));
+    const fidelityTerms = extractQuickWishFidelityTerms(ideaText);
+    const missingFidelityTerms = fidelityTerms.filter((term) => {
+      const pattern = new RegExp(`\b${escapeRegExp(term)}\b`, "i");
+      return !pattern.test(text);
+    });
 
     if (!ideaMentions) {
       issues.push("missing-custom-idea");
+    } else if (isGenericFlyingWish(ideaText) && fidelityTerms.length && missingFidelityTerms.length === fidelityTerms.length) {
+      issues.push("missing-custom-idea-detail");
     }
   }
 
@@ -4051,6 +4173,7 @@ function pickWorldValue(value, fallback) {
 
 function resolveWorldKey(world) {
   if (!world) return "";
+  if (typeof world.worldKey === "string" && world.worldKey) return world.worldKey;
   for (const [key, value] of Object.entries(themeWorlds)) {
     if (value === world) return key;
   }
@@ -4062,26 +4185,222 @@ function getWorldStoryKit(world) {
   return worldKey ? worldStoryKits[worldKey] || null : null;
 }
 
+function detectFlyingSceneKey(idea = "") {
+  const lower = normalizeStoryIdea(idea).toLowerCase();
+  if (/dolphin|dolphins|whale|whales|ocean|sea|waves/.test(lower)) return "ocean";
+  if (/desert|camel|camels|egypt|pyramid|pyramids|nile/.test(lower)) return "desert";
+  if (/mountain|mountains|eagle|eagles|snow|snowy/.test(lower)) return "mountains";
+  if (/jungle|parrot|parrots|rainforest|canopy|toucan/.test(lower)) return "jungle";
+  if (/field|fields|farm|sheep|horse|horses|pony|ponies|meadow/.test(lower)) return "meadow";
+  if (/forest|woods|woodland|owl|owls|treetops/.test(lower)) return "forest";
+  if (/castle|palace|tower|royal|kingdom/.test(lower)) return "castle";
+  if (/island|islands|lagoon|coast|shore|cliffs/.test(lower)) return "islands";
+  if (/city|town|rooftops|lanterns|street/.test(lower)) return "city";
+  return "random";
+}
+
+function getFlyingSceneLibrary() {
+  return {
+    ocean: {
+      world: {
+        settings: ["a moonlit sky above the ocean where dolphins leapt and whales sang softly below"],
+        companions: ["a little moon-kite who loved the sea breeze", "a calm silver-winged gull who knew the wind paths"],
+        discoveries: ["a sky-lantern glowing above the whale-song", "a silver feather-map pointing over the moonlit waves"],
+        challenge: ["a swirl of sea-wind that curved above the moonlit waves"],
+        goal: ["glide above the waves and help a little whale find its family song"],
+      },
+      backdrop: {
+        setup: "over the moonlit ocean while dolphins leapt and whales glimmered below",
+        inciting: "The whole adventure seemed to open above the moonlit ocean, where dolphins leapt and whales moved like silver shadows below.",
+        action: "With {companion} close by, {name} glided in a slow, peaceful arc above the waves, watching dolphins dance and a whale trail shimmer through the water below.",
+        midpoint: "{name} kept flying gently above the sea, noticing the quiet splash of dolphins, the slow song of whales, and the silver path of moonlight on the water.",
+        payoff: "By the end of the journey, {name} had truly flown above the ocean in the calm, magical way first imagined, and the sight of dolphins and whales below helped {companion} and {name} {goal}.",
+      },
+    },
+    desert: {
+      world: {
+        settings: ["a warm twilight sky above golden dunes where sleepy camels wandered below"],
+        companions: ["a friendly sand-star bird", "a gentle little cloud guide drifting over the dunes"],
+        discoveries: ["a glowing feather-map leading toward a moonlit oasis", "a ribbon of wind curling over the camel trail below"],
+        challenge: ["a warm ribbon of desert wind above the drifting dunes"],
+        goal: ["follow the wind to a moonlit oasis before the camels settled to sleep"],
+      },
+      backdrop: {
+        setup: "over golden desert dunes where sleepy camels padded below",
+        inciting: "The whole adventure seemed to open over glowing desert sands, where sleepy camels moved in gentle lines beneath the evening sky.",
+        action: "With {companion} close by, {name} floated through the air in a calm, magical way, drifting above golden dunes and watching quiet camels wander below.",
+        midpoint: "{name} kept flying in the gentlest way, high above the desert, noticing moonlit sand ripples, tiny caravan lights, and the calm shapes of camels below.",
+        payoff: "By the end of the journey, {name} had truly flown over the desert in the calm, magical way first imagined, and the peaceful sight of camels below helped {companion} and {name} {goal}.",
+      },
+    },
+    mountains: {
+      world: {
+        settings: ["a silver-blue sky above snowy mountains where quiet eagles glided on the wind"],
+        companions: ["a small snow-feathered sky guide", "a patient cloud bird who knew every mountain current"],
+        discoveries: ["a star-lantern hovering above the peaks", "a wind-map shining beside the highest ridge"],
+        challenge: ["a high curling breeze weaving between the quiet mountain peaks"],
+        goal: ["carry a gentle star-message across the mountains before the last light faded"],
+      },
+      backdrop: {
+        setup: "above snowy mountains where quiet eagles glided on the wind",
+        inciting: "The whole adventure seemed to open across a silver-blue mountain sky, where quiet eagles glided and snowy peaks shone softly below.",
+        action: "With {companion} close by, {name} drifted through the air in a slow, peaceful arc above the mountains, following the gentlest wind-paths.",
+        midpoint: "{name} kept flying softly above the peaks, watching far-off eagles, bright snowlines, and cloud-shadows slide over the mountains below.",
+        payoff: "By the end of the journey, {name} had truly flown above the mountains in the calm, magical way first imagined, and the stillness of that high sky helped {companion} and {name} {goal}.",
+      },
+    },
+    jungle: {
+      world: {
+        settings: ["a calm evening sky above a jungle canopy where parrots tucked themselves in below"],
+        companions: ["a tiny wind-parrot with emerald feathers", "a soft cloud bird who glided above the treetops"],
+        discoveries: ["a glowing feather-path above the canopy", "a little lantern of sky-light above the treetop leaves"],
+        challenge: ["a winding drift of warm air above the whispering treetops"],
+        goal: ["follow the sky path until the parrots' treetop lanterns glowed below"],
+      },
+      backdrop: {
+        setup: "above a calm jungle canopy where parrots tucked themselves in for the night",
+        inciting: "The whole adventure seemed to open over the jungle canopy, where treetops swayed softly and parrots settled into the leaves below.",
+        action: "With {companion} close by, {name} soared in a slow, peaceful curve above the treetops, watching the green world below grow quiet and golden.",
+        midpoint: "{name} kept flying softly above the jungle, noticing sleepy parrots, winding rivers, and lantern-like flowers glowing below the leaves.",
+        payoff: "By the end of the journey, {name} had truly flown above the jungle in the calm, magical way first imagined, and that peaceful view helped {companion} and {name} {goal}.",
+      },
+    },
+    meadow: {
+      world: {
+        settings: ["a soft cloud path above green fields where sheep and little horses looked tiny below"],
+        companions: ["a gentle skylark guide", "a little cloud rabbit floating on the breeze"],
+        discoveries: ["a wind-ribbon curling over the quiet fields", "a glowing sky charm above the moonlit meadow"],
+        challenge: ["a long drifting bend in the evening breeze above the fields"],
+        goal: ["circle over the fields and find the glowing place where the night breeze wanted them to land"],
+      },
+      backdrop: {
+        setup: "above green fields where sheep and little horses looked tiny below",
+        inciting: "The whole adventure seemed to open over a patchwork of quiet fields, where tiny sheep and little horses moved softly below the evening sky.",
+        action: "With {companion} close by, {name} drifted along a soft cloud path above the fields, watching the peaceful shapes below grow silver in the moonlight.",
+        midpoint: "{name} kept flying gently over the meadows, noticing sleepy sheep, little horses, and winding hedgerows below.",
+        payoff: "By the end of the journey, {name} had truly flown above the fields in the calm, magical way first imagined, and that peaceful view helped {companion} and {name} {goal}.",
+      },
+    },
+    forest: {
+      world: {
+        settings: ["a moonlit sky above a whispering forest where owls glided between the treetops below"],
+        companions: ["a gentle owl guide", "a soft little cloud fox riding the breeze"],
+        discoveries: ["a lantern-feather shining above the treetops", "a silver wind-path curling over the forest canopy"],
+        challenge: ["a hush of cool air weaving between the tallest trees"],
+        goal: ["follow the wind above the woods and find the glowing clearing hidden among the trees"],
+      },
+      backdrop: {
+        setup: "above a whispering forest where owls glided between the treetops below",
+        inciting: "The whole adventure seemed to open above the moonlit woods, where owls crossed between the treetops and silver clearings glowed below.",
+        action: "With {companion} close by, {name} glided over the forest in a slow, peaceful arc, watching the treetops sway softly beneath.",
+        midpoint: "{name} kept flying gently above the woods, noticing owl-wings, moonlit leaves, and little clearings brightening below.",
+        payoff: "By the end of the journey, {name} had truly flown above the forest in the calm, magical way first imagined, and the peaceful woods below helped {companion} and {name} {goal}.",
+      },
+    },
+    castle: {
+      world: {
+        settings: ["a silver evening sky above castle towers and royal gardens glowing quietly below"],
+        companions: ["a little ribbon-winged bird", "a calm cloud swan drifting past the towers"],
+        discoveries: ["a glowing feather-map above the palace roofs", "a tiny lantern star hovering over the tallest tower"],
+        challenge: ["a curling breeze around the castle towers"],
+        goal: ["follow the sky path above the castle and find the tower window glowing with a gentle secret"],
+      },
+      backdrop: {
+        setup: "above silver castle towers where royal gardens shimmered softly below",
+        inciting: "The whole adventure seemed to open above a moonlit castle, where quiet towers rose into the sky and royal gardens glimmered below.",
+        action: "With {companion} close by, {name} floated through the air above the palace roofs, following the breeze past turrets and soft lantern-light.",
+        midpoint: "{name} kept flying gently above the castle, noticing silvery rooftops, secret balconies, and moonlit garden paths below.",
+        payoff: "By the end of the journey, {name} had truly flown above the castle in the calm, magical way first imagined, and that royal view helped {companion} and {name} {goal}.",
+      },
+    },
+    islands: {
+      world: {
+        settings: ["a glowing sky above little islands and silver lagoons scattered across the sea below"],
+        companions: ["a bright-winged seabird guide", "a tiny cloud dolphin-shaped kite"],
+        discoveries: ["a shining sky-lantern above the lagoon", "a silver feather-path drifting from island to island"],
+        challenge: ["a curling breeze between the little island cliffs"],
+        goal: ["follow the sky path above the islands and find the lagoon that glowed like a lantern"],
+      },
+      backdrop: {
+        setup: "above little islands and silver lagoons scattered peacefully below",
+        inciting: "The whole adventure seemed to open over little islands and shining lagoons, where the sea below looked like a patchwork of sleepy silver lights.",
+        action: "With {companion} close by, {name} glided between soft clouds above the islands, watching quiet shores and little coves drift below.",
+        midpoint: "{name} kept flying gently over the islands, noticing moonlit lagoons, tiny beaches, and winding shorelines below.",
+        payoff: "By the end of the journey, {name} had truly flown above the islands in the calm, magical way first imagined, and that peaceful view helped {companion} and {name} {goal}.",
+      },
+    },
+    city: {
+      world: {
+        settings: ["a calm night sky above lantern-lit rooftops and quiet city streets glowing below"],
+        companions: ["a gentle rooftop starling", "a little lantern-kite who knew the sleeping city"],
+        discoveries: ["a glowing sky note drifting above the rooftops", "a silver feather-map tracing the quiet streets below"],
+        challenge: ["a swirl of warm air above the lantern-lit rooftops"],
+        goal: ["glide above the rooftops and follow the sky note to the quiet place where it belonged"],
+      },
+      backdrop: {
+        setup: "above lantern-lit rooftops where the quiet city glowed softly below",
+        inciting: "The whole adventure seemed to open over a sleeping city, where rooftops, chimneys, and little lanterns glowed warmly below.",
+        action: "With {companion} close by, {name} drifted in a gentle curve above the rooftops, watching the quiet streets shine softly below.",
+        midpoint: "{name} kept flying gently above the city, noticing lanterns, rooftop gardens, and silver streets winding below.",
+        payoff: "By the end of the journey, {name} had truly flown above the city in the calm, magical way first imagined, and the quiet lights below helped {companion} and {name} {goal}.",
+      },
+    },
+  };
+}
+
+function buildFlyingWorldVariant(idea = "") {
+  const sceneKey = detectFlyingSceneKey(idea);
+  const sceneLibrary = getFlyingSceneLibrary();
+  const availableSceneKeys = Object.keys(sceneLibrary);
+  const resolvedSceneKey = sceneKey === "random"
+    ? pickFreshValue(availableSceneKeys, "flying:sceneKey", 6)
+    : sceneKey;
+  const variant = sceneLibrary[resolvedSceneKey] || sceneLibrary.meadow;
+  return {
+    ...themeWorlds.flying,
+    ...variant.world,
+    worldKey: "flying",
+    flyingSceneKey: resolvedSceneKey,
+    pronoun: "they",
+  };
+}
+
+function pickFlyingBackdrop(idea = "", sceneKey = "") {
+  const detectedSceneKey = sceneKey || detectFlyingSceneKey(idea);
+  const sceneLibrary = getFlyingSceneLibrary();
+  const availableSceneKeys = Object.keys(sceneLibrary);
+  const resolvedSceneKey = detectedSceneKey === "random"
+    ? pickFreshValue(availableSceneKeys, "flying:backdropSceneKey", 6)
+    : detectedSceneKey;
+  return (sceneLibrary[resolvedSceneKey] || sceneLibrary.meadow).backdrop;
+}
+
 function normalizeStoryIdea(value) {
   return String(value || "")
     .replace(/\s+/g, " ")
     .trim();
 }
 
-function buildOfflineIdeaArc(name, companion, customIdea, goal) {
+function buildOfflineIdeaArc(name, companion, customIdea, goal, flyingSceneKey = "") {
   const idea = normalizeStoryIdea(customIdea);
   if (!idea) return null;
 
   const lower = idea.toLowerCase();
 
   if (/\bfly|flying|glide|gliding|soar|soaring\b/.test(lower)) {
+    const backdrop = pickFlyingBackdrop(lower, flyingSceneKey);
     return {
-      setupLine: `${name} had one special hope tonight: to fly in a calm, magical way and ${goal}.`,
-      incitingLine: `The whole adventure seemed to open around that lovely idea, and ${name} could already imagine the quiet feeling of flying through the night sky.`,
-      actionLine: `With ${companion} close by, ${name} rose into the air and flew in a slow, peaceful arc, letting the night carry the adventure gently onward.`,
-      midpointLine: `${name} kept flying in the gentlest way, high above the quiet world, noticing soft lights, sleepy clouds, and the hush of the stars below.`,
-      payoffLine: `By the end of the journey, ${name} had truly flown through the night in the calm, magical way that had first filled the adventure with wonder, and it helped ${companion} and ${name} ${goal}.`,
-      title: `${name} and the Gentle Night Flight`,
+      setupLine: `${name} had one special hope tonight: to fly in a calm, magical way ${backdrop.setup} and ${goal}.`,
+      incitingLine: backdrop.inciting,
+      actionLine: backdrop.action
+        .replaceAll("{name}", name)
+        .replaceAll("{companion}", companion),
+      midpointLine: backdrop.midpoint.replaceAll("{name}", name),
+      payoffLine: backdrop.payoff
+        .replaceAll("{name}", name)
+        .replaceAll("{companion}", companion)
+        .replaceAll("{goal}", goal),
+      title: `${name} and the Gentle Flying Adventure`,
     };
   }
 
@@ -4119,7 +4438,7 @@ function buildOfflineIdeaArc(name, companion, customIdea, goal) {
 
 function buildProceduralTitle(name, { mode = "random", customIdea = "", worldKey = "", world = null } = {}) {
   const formattedName = formatName(name || "A Little One");
-  const ideaArc = buildOfflineIdeaArc(formattedName, "a gentle friend", customIdea, "complete a gentle bedtime quest");
+  const ideaArc = buildOfflineIdeaArc(formattedName, "a gentle friend", customIdea, "complete a gentle bedtime quest", world?.flyingSceneKey || "");
   if (mode === "hero" && ideaArc?.title) return ideaArc.title;
 
   const settingHint = String(pickWorldValue(world?.settings, "")).toLowerCase();
@@ -4177,6 +4496,7 @@ function buildProceduralTitle(name, { mode = "random", customIdea = "", worldKey
     superheroes: `${formattedName} and the Gentle Hero Adventure`,
     princesses: `${formattedName} and the Moonlit Palace Secret`,
     space: `${formattedName} and the Sleepy Star Journey`,
+    flying: `${formattedName} and the Gentle Flying Adventure`,
     robots: `${formattedName} and the Little Robot Mystery`,
     animals: `${formattedName} and the Woodland Goodnight`,
     magic: `${formattedName} and the Quiet Magic Trail`,
@@ -4200,7 +4520,10 @@ function generateQuickStory(child = {}, world = null, siblings = [], attempt = 1
   const gender = child.gender || "neutral";
   const requestedLength = String(child.requestedLength || child.length || "medium").trim().toLowerCase();
   const customIdea = normalizeStoryIdea(child.customIdea || child.heroIdea || "");
-  const worldKey = resolveWorldKey(world) || "generic";
+  const effectiveWorld = resolveWorldKey(world) === "flying"
+    ? buildFlyingWorldVariant(customIdea || child.interests?.join(" ") || "")
+    : world;
+  const worldKey = resolveWorldKey(effectiveWorld) || "generic";
 
   // Build a sibling mention that scales to families of any size (1–5+ kids)
   const validSiblings = (siblings || [])
@@ -4208,23 +4531,23 @@ function generateQuickStory(child = {}, world = null, siblings = [], attempt = 1
   const siblingLine = buildSiblingLine(name, gender, validSiblings);
 
   const character = generateCharacter(name, gender);
-  const worldStoryKit = getWorldStoryKit(world);
+  const worldStoryKit = getWorldStoryKit(effectiveWorld);
 
   // Consistent world elements — chosen once, used throughout
-  const setting = pickStoryValue("setting", world?.settings, settings, worldKey, 3);
-  const companionObj = pickStoryValue("companion", world?.companions, companions, worldKey, 3);
+  const setting = pickStoryValue("setting", effectiveWorld?.settings, settings, worldKey, 3);
+  const companionObj = pickStoryValue("companion", effectiveWorld?.companions, companions, worldKey, 3);
   // Support both old string companions (from worlds) and new {full,short} objects
   const companionFull = typeof companionObj === "string" ? companionObj : companionObj.full;
   const companion = typeof companionObj === "string"
     ? deriveShortCompanionName(companionObj)
     : companionObj.short;
-  const discoveryEntry = pickStoryValue("discoveryItem", world?.discoveries, discoveries, worldKey, 3);
-  const challenge = pickStoryValue("challenge", world?.challenge, softChallenges, worldKey, 3);
-  const goal = pickStoryValue("goal", world?.goal, ["complete a gentle bedtime quest"], worldKey, 3);
+  const discoveryEntry = pickStoryValue("discoveryItem", effectiveWorld?.discoveries, discoveries, worldKey, 3);
+  const challenge = pickStoryValue("challenge", effectiveWorld?.challenge, softChallenges, worldKey, 3);
+  const goal = pickStoryValue("goal", effectiveWorld?.goal, ["complete a gentle bedtime quest"], worldKey, 3);
   const discoveryMeta = normalizeDiscoveryEntry(discoveryEntry, { goal });
   const discovery = discoveryMeta.text;
   const discoveryLead = capitalizeStoryFragment(discovery);
-  const { subj, obj, poss } = resolvePronouns(child, world?.pronoun);
+  const { subj, obj, poss } = resolvePronouns(child, effectiveWorld?.pronoun);
   const pronoun = subj; // kept for legacy uses below
   const fillCtx = { name, companion, companionFull, subj, obj, poss };
   const opening = fillPronouns(
@@ -4249,7 +4572,7 @@ function generateQuickStory(child = {}, world = null, siblings = [], attempt = 1
     ? "quest"
     : pickStoryValue("storyShape", worldStoryKit?.storyShapes, ["quest", "helper", "discovery", "comfort"], worldKey, 2);
   const goalPayoffLine = buildGoalPayoffLine(name, companion, goal, discoveryEntry, worldStoryKit?.goalPayoffOptions);
-  const ideaArc = buildOfflineIdeaArc(name, companion, customIdea, goal);
+  const ideaArc = buildOfflineIdeaArc(name, companion, customIdea, goal, effectiveWorld?.flyingSceneKey || "");
   const openingGoalLine = pickStoryVariant("openingGoal", [
     `${name} had one gentle goal tonight: ${goal}.`,
     `Tonight, ${name} hoped to ${goal}.`,
@@ -6019,6 +6342,15 @@ async function handleGenerate(mode) {
   }
 
   try {
+    if (mode === "tonight") {
+      // Quick stories are offline-first: always use the procedural engine.
+      // No network call, no auth, no rate limits — bedtime always happens,
+      // even on a plane or a dead Wi-Fi router.
+      throw Object.assign(new Error("Quick stories use the offline procedural engine."), {
+        proceduralFallback: true,
+      });
+    }
+
     const response = await fetch("/generate", {
       method: "POST",
       headers: await buildAuthenticatedJsonHeaders(),
@@ -6031,6 +6363,12 @@ async function handleGenerate(mode) {
     }
 
     const data = await response.json();
+    if (data?.fallback) {
+      throw Object.assign(new Error("AI unavailable, using procedural fallback."), {
+        proceduralFallback: true,
+      });
+    }
+
     const story = typeof data?.story === "string" && data.story.trim()
       ? applyDialectToText(data.story, payload.dialect)
       : "No story was returned. Please try again.";
@@ -6067,7 +6405,9 @@ async function handleGenerate(mode) {
 
     enterReadingMode();
   } catch (error) {
-    console.error("Story generation failed:", error);
+    if (!error?.proceduralFallback) {
+      console.warn("AI generation unavailable, using procedural fallback.", error);
+    }
 
     // FALLBACK: If API fails, serve a procedural story so bedtime still happens.
     // Works for both Quick and Hero modes — quality insurance for parents.
@@ -6134,18 +6474,22 @@ async function handleGenerate(mode) {
       }) || fallbackTitle;
 
       finalText = rawFallback;
-      try {
-        const polishResponse = await fetch("/polish", {
-          method: "POST",
-          headers: await buildAuthenticatedJsonHeaders(),
-          body: JSON.stringify({ story: rawFallback, dialect: getCurrentDialect() }),
-        });
-        if (polishResponse.ok) {
-          const polishData = await polishResponse.json();
-          finalText = applyDialectToText(polishData.story || rawFallback, getCurrentDialect());
+      // Quick Story stays fully offline — no /polish network call.
+      // Medium/Long/Hero fallbacks still attempt a polish pass for quality.
+      if (mode !== "tonight") {
+        try {
+          const polishResponse = await fetch("/polish", {
+            method: "POST",
+            headers: await buildAuthenticatedJsonHeaders(),
+            body: JSON.stringify({ story: rawFallback, dialect: getCurrentDialect() }),
+          });
+          if (polishResponse.ok) {
+            const polishData = await polishResponse.json();
+            finalText = applyDialectToText(polishData.story || rawFallback, getCurrentDialect());
+          }
+        } catch {
+          // Polish failed too — serve raw procedural story
         }
-      } catch {
-        // Polish failed too — serve raw procedural story
       }
     } catch (fallbackError) {
       console.error("Procedural fallback failed:", fallbackError);
