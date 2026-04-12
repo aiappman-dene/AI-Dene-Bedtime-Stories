@@ -209,18 +209,17 @@ function getDialectLabel(dialect = getCurrentDialect()) {
 // what worked well for children of similar ages worldwide.
 // =============================================================================
 
-async function saveToGlobalIdeaBank({ originalIdea, ageGroup, type, language }) {
+async function saveToGlobalIdeaBank({ originalIdea, storyTitle, ageGroup, type, language }) {
   if (!currentUser || !originalIdea) return;
   try {
     const { collection, addDoc, getFirestore, serverTimestamp } = await import("https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js");
     const db = getFirestore();
     await addDoc(collection(db, "globalIdeaBank"), {
       originalIdea,
+      storyTitle: storyTitle || null,
       ageGroup,
       type,
       language,
-      rating: null,
-      childSlept: null,
       createdAt: serverTimestamp(),
     });
   } catch (err) {
@@ -6493,11 +6492,14 @@ async function handleGenerate(mode) {
       if (storyMode === "hero") advanceHeroSeries(storyChildName, title, story);
     }
 
-    // Global Idea Bank: save idea metadata so future stories can learn from it
-    if (story && !story.startsWith("No story was returned") && payload.customIdea) {
+    // Global Idea Bank: save every successful story so the system learns
+    // from children worldwide. The "idea" for random stories is the interests
+    // used — this is what other users' Surprise Me picks will be inspired by.
+    if (story && !story.startsWith("No story was returned")) {
       saveToGlobalIdeaBank({
-        originalIdea: payload.customIdea,
-        ageGroup: Math.round((parseInt(payload.age) || 5) / 2) * 2, // round to nearest 2
+        originalIdea: payload.customIdea || payload.interests || "",
+        storyTitle: title || null,
+        ageGroup: Math.round((parseInt(payload.age) || 5) / 2) * 2,
         type: storyMode,
         language: getCurrentLanguage(),
       }).catch(() => {});
