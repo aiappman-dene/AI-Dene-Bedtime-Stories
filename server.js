@@ -91,24 +91,35 @@ if (NODE_ENV === "production") {
   }
 }
 
-function getStoryTokenBudget(length, stage = "story") {
+function getStoryTokenBudget(length, stage = "story", language = "en-GB") {
   const normalizedLength = String(length || "medium").toLowerCase();
 
+  // Token multiplier by script family.
+  // Arabic / Hindi / Urdu scripts tokenize at roughly 2× the rate of English.
+  // CJK (Japanese / Chinese) is efficient but gets a small buffer.
+  // All other non-English languages get a moderate buffer.
+  const lang = String(language || "en-GB").toLowerCase();
+  const isEnglish = lang === "en-gb" || lang === "en-us" || lang === "british" || lang === "american";
+  const isAbjad  = lang === "ar" || lang === "hi" || lang === "ur";   // Arabic script / Devanagari
+  const isCJK    = lang === "ja" || lang === "zh-cn";
+  const multiplier = isAbjad ? 2.0 : isCJK ? 1.2 : isEnglish ? 1.0 : 1.4;
+
   if (normalizedLength === "short") {
-    if (stage === "title") return 50;
-    if (stage === "delivery") return 800;
-    return 800;
+    if (stage === "title") return 80;
+    if (stage === "delivery") return Math.ceil(1000 * multiplier);
+    return Math.ceil(1000 * multiplier);
   }
 
   if (normalizedLength === "long") {
-    if (stage === "title") return 60;
-    if (stage === "delivery") return 2500;
-    return 2600;
+    if (stage === "title") return 100;
+    if (stage === "delivery") return Math.ceil(3200 * multiplier);
+    return Math.ceil(3500 * multiplier);
   }
 
-  if (stage === "title") return 50;
-  if (stage === "delivery") return 1500;
-  return 1500;
+  // medium (default)
+  if (stage === "title") return 80;
+  if (stage === "delivery") return Math.ceil(2000 * multiplier);
+  return Math.ceil(2000 * multiplier);
 }
 
 // =============================================================================
@@ -219,7 +230,7 @@ function finalizeStoryLocally(storyText, dialect, label) {
 
 async function runDeliveryQaPass(storyText, dialect) {
   let currentStory = normalizeStoryOutput(storyText);
-  const deliveryBudget = getStoryTokenBudget(currentStory.split(/\s+/).length >= 950 ? "long" : "medium", "delivery");
+  const deliveryBudget = getStoryTokenBudget(currentStory.split(/\s+/).length >= 950 ? "long" : "medium", "delivery", dialect);
 
   for (let attempt = 1; attempt <= 2; attempt++) {
     const issues = detectStoryQualityIssues(currentStory, { dialect });
@@ -255,8 +266,7 @@ async function runDeliveryQaPass(storyText, dialect) {
 
 const CLAUDE_API_URL = "https://api.anthropic.com/v1/messages";
 const CLAUDE_MODEL_SONNET = "claude-sonnet-4-6";
-const CLAUDE_MODEL_HAIKU = "claude-haiku-4-5-20251001";
-const CLAUDE_MODEL_DEFAULT = CLAUDE_MODEL_HAIKU;
+const CLAUDE_MODEL_DEFAULT = CLAUDE_MODEL_SONNET;
 const API_VERSION = "2023-06-01";
 
 // Tier model + creative temperature by story size.
@@ -656,10 +666,10 @@ app.post(
       const modelConfig = getModelConfig({ mode, length });
       logEvent(`Model config for "${cleanName}": ${modelConfig.model} @ temp ${modelConfig.temperature}`);
 
-      const storyMaxTokens = getStoryTokenBudget(length, "story");
-      const editorMaxTokens = getStoryTokenBudget(length, "editor");
-      const validatorMaxTokens = getStoryTokenBudget(length, "validator");
-      const titleMaxTokens = getStoryTokenBudget(length, "title");
+      const storyMaxTokens = getStoryTokenBudget(length, "story", cleanLanguage);
+      const editorMaxTokens = getStoryTokenBudget(length, "editor", cleanLanguage);
+      const validatorMaxTokens = getStoryTokenBudget(length, "validator", cleanLanguage);
+      const titleMaxTokens = getStoryTokenBudget(length, "title", cleanLanguage);
 
       const MAX_ATTEMPTS = USE_FULL_AI_PIPELINE ? 2 : 1;
       let finalStory = null;

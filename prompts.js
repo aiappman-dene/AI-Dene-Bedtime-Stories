@@ -99,7 +99,7 @@ IF mode = "random":
 ====================================
 STAGE 4 — LANGUAGE & QUALITY ENFORCEMENT
 ====================================
-- Perfect grammar, punctuation, and sentence flow in the requested English variant
+- Perfect grammar, punctuation, and sentence flow in the requested story language
 - Remove repetition (e.g., overuse of "calm", "gentle")
 - Improve readability to match a professional children's book
 - No robotic or awkward phrasing
@@ -205,7 +205,7 @@ QUALITY ENFORCEMENT
 - Preserve vivid but simple imagery that feels storybook-quality rather than generic.
 - Remove filler, flattening, and lines that merely restate what the reader already knows.
 - Prefer showing over telling when a light editorial adjustment can improve immersion.
-- Preserve the requested English variant consistently throughout.
+- Preserve the story's original language consistently throughout — do NOT translate or switch languages.
 
 ====================================
 CONSISTENCY ENFORCEMENT
@@ -323,7 +323,7 @@ CHECK AND FIX:
 
 RULES:
 - Preserve the story's meaning, events, tone, and emotional arc.
-- Preserve the chosen English variant exactly.
+- Preserve the story's original language exactly — do NOT translate or switch languages.
 - Prefer surgical edits over rewrites.
 - Do not add new plot beats, commentary, headings, or a title.
 - Return ONLY the corrected story text.`;
@@ -718,9 +718,24 @@ Write the story now.`;
  * Build the user-facing prompt for the editor pass.
  */
 export function buildGrammarPrompt(storyText, dialect) {
-  return `Review and polish this bedtime story for publication. Ensure it reads beautifully aloud and feels like a professionally published children's book.
+  const langInstruction = getLanguagePreservationInstruction(dialect);
 
-Use ${getDialectInstruction(dialect)} consistently. Fix any mixed spelling or phrasing.
+  if (isEnglishLanguageCode(dialect)) {
+    return `Review and polish this bedtime story for publication. Ensure it reads beautifully aloud and feels like a professionally published children's book.
+
+Use ${langInstruction} consistently. Fix any mixed spelling or phrasing.
+
+You must also verify that setting, timeline, and character behaviour are fully consistent. Fix any issues you find.
+
+STORY:
+${storyText}`;
+  }
+
+  const code = resolveLanguageCode(dialect);
+  const langName = LANGUAGE_NAMES[code] || code;
+  return `Review and polish this ${langName} bedtime story for publication. Ensure it reads beautifully aloud in ${langName} and feels like a professionally published children's book.
+
+Maintain ${langInstruction}. Fix any grammar, flow, or phrasing that sounds unnatural in ${langName} for a children's bedtime story. Do NOT translate to English.
 
 You must also verify that setting, timeline, and character behaviour are fully consistent. Fix any issues you find.
 
@@ -766,8 +781,16 @@ Perform the INTEREST UTILISATION CHECK: verify at least one interest plays a mea
 ${childWish ? `Perform the WISH FIDELITY CHECK: verify tonight's wish remains central and recognisable in the story. If the wish is a simple action or image such as "flying" or "swimming", that action/image must clearly happen on-page rather than being replaced by a nearby generic theme. If the wish combines multiple major parts, preserve all of them together so the story does not drop the creature, place, or action that made the wish specific. If the wish has drifted into something generic or unrelated — rewrite surgically to restore it.` : ""}`;
   }
 
-  return `Perform a strict final validation on this bedtime story. Check setting consistency, timeline logic, character consistency, grammar, child safety, and dialect consistency.
-Use ${getDialectInstruction(dialect)} consistently throughout. If any spelling or phrasing mixes dialects, correct it.
+  const languageCheckLine = isEnglishLanguageCode(dialect)
+    ? `Use ${getLanguagePreservationInstruction(dialect)} consistently throughout. If any spelling or phrasing mixes dialects, correct it.`
+    : (() => {
+        const code = resolveLanguageCode(dialect);
+        const name = LANGUAGE_NAMES[code] || code;
+        return `The story must be written entirely in ${name}. Do not translate or introduce English words. Correct any language-mixing issues.`;
+      })();
+
+  return `Perform a strict final validation on this bedtime story. Check setting consistency, timeline logic, character consistency, grammar, child safety, and language consistency.
+${languageCheckLine}
 ${modeContext}
 If perfect, return it exactly as-is. If any issue exists, fix it silently.
 
@@ -779,8 +802,16 @@ ${storyText}`;
  * Build a prompt to generate a short, magical story title.
  */
 export function buildTitlePrompt(storyText, childName, dialect) {
+  const langLine = isEnglishLanguageCode(dialect)
+    ? `Use ${getLanguagePreservationInstruction(dialect)} if spelling choices matter.`
+    : (() => {
+        const code = resolveLanguageCode(dialect);
+        const name = LANGUAGE_NAMES[code] || code;
+        return `Write the title in ${name}.`;
+      })();
+
   return `Generate a short, enchanting title (3–6 words) for this children's bedtime story. The main character is called ${childName}.
-Use ${getDialectInstruction(dialect)} if spelling choices matter.
+${langLine}
 
 Return ONLY the title — no quotes, no punctuation, no explanation.
 
@@ -794,11 +825,18 @@ ${storyText.substring(0, 600)}`;
 export function buildDeliveryQaPrompt(storyText, { issues = [], dialect } = {}) {
   const issueBlock = issues.length
     ? issues.map((issue) => `- ${issue}`).join("\n")
-    : "- General final quality cleanup only."
-;
+    : "- General final quality cleanup only.";
+
+  const langLine = isEnglishLanguageCode(dialect)
+    ? `Use ${getLanguagePreservationInstruction(dialect)} consistently.`
+    : (() => {
+        const code = resolveLanguageCode(dialect);
+        const name = LANGUAGE_NAMES[code] || code;
+        return `Maintain the story in ${name} throughout — do not translate or introduce English.`;
+      })();
 
   return `Perform a final delivery-quality cleanup on this bedtime story.
-Use ${getDialectInstruction(dialect)} consistently.
+${langLine}
 
 Focus on these issues:
 ${issueBlock}
@@ -863,29 +901,47 @@ export function resolveLanguageCode(language) {
   return DIALECT_TO_LANGUAGE[key] || language;
 }
 
+// Full story-generation language directive (used in buildStoryPrompt LANGUAGE STYLE field).
 function getLanguageInstruction(language) {
   const code = resolveLanguageCode(language);
   const name = LANGUAGE_NAMES[code];
 
   if (!name) {
-    // Unknown code — fall back to British English
     return "British English (en-GB) spelling and phrasing";
   }
-
   if (code === "en-GB") {
     return "British English (en-GB) spelling and phrasing (for example: colour, favourite, cosy, mum, travelling, prioritise)";
   }
   if (code === "en-US") {
     return "American English (en-US) spelling and phrasing (for example: color, favorite, cozy, mom, traveling, prioritize)";
   }
-
-  // Non-English: full language instruction
+  // Non-English: directive to write the whole story in that language
   return `${name}. Write the ENTIRE story in ${name}. Do not use any English words or phrases. Use vocabulary and expressions natural for a children's bedtime story in ${name}.`;
+}
+
+// Short phrase used inside sentences like "Use [X] consistently."
+// Produces grammatically correct output for both English dialects and non-English.
+function getLanguagePreservationInstruction(language) {
+  const code = resolveLanguageCode(language);
+  if (code === "en-GB") {
+    return "British English (en-GB) spelling and phrasing (e.g. colour, favourite, cosy, mum, travelling)";
+  }
+  if (code === "en-US") {
+    return "American English (en-US) spelling and phrasing (e.g. color, favorite, cozy, mom, traveling)";
+  }
+  const name = LANGUAGE_NAMES[code];
+  if (!name) return "British English (en-GB) spelling and phrasing";
+  return `${name} throughout — preserve the original ${name}, do not translate or introduce English`;
+}
+
+function isEnglishLanguageCode(language) {
+  const code = resolveLanguageCode(language || "");
+  return code === "en-GB" || code === "en-US";
 }
 
 // Keep as a named export so server.js and other callers can still use it
 export function getDialectInstruction(dialect) {
-  return getLanguageInstruction(dialect);
+  return getLanguagePreservationInstruction(dialect);
 }
 
 /**

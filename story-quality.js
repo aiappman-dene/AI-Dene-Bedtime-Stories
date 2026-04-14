@@ -1,6 +1,8 @@
 export const STORY_LOCALE_EN_GB = "en-GB";
 export const STORY_LOCALE_EN_US = "en-US";
 
+const ENGLISH_LOCALES = new Set(["en-gb", "en-us", "british", "american"]);
+
 const DIALECT_PAIRS = [
   ["favourite", "favorite"],
   ["favourited", "favorited"],
@@ -67,6 +69,8 @@ export function normalizeStoryLocale(value) {
 }
 
 export function isSupportedStoryLocale(value) {
+  // Accepts legacy English-only dialect values — non-English languages use the
+  // separate `language` field validated by isString/isLength in express-validator.
   const key = String(value || "").trim().toLowerCase();
   return key === "british" || key === "american" || key === "en-gb" || key === "en-us";
 }
@@ -162,22 +166,33 @@ export function detectStoryQualityIssues(text, { dialect } = {}) {
     }
   }
 
-  if (paragraphs.some((paragraph) => !/[.!?")]$/.test(paragraph))) {
+  // Accept standard Latin punctuation AND common non-Latin equivalents:
+  // 。(CJK fullstop)  ！？(fullwidth)  ۔(Urdu/Arabic)  ।(Hindi danda)  」(CJK quote)
+  const VALID_END_PUNCT = /[.!?"\u3002\uff01\uff1f\u06D4\u0964\u300D]$/;
+  if (paragraphs.some((paragraph) => !VALID_END_PUNCT.test(paragraph))) {
     issues.push("At least one paragraph is missing proper ending punctuation.");
   }
 
+  const isEnglish = ENGLISH_LOCALES.has(String(dialect || "").trim().toLowerCase());
+
   const lastSentence = sentences.at(-1) || paragraphs.at(-1) || story;
   const lastTwoSentences = sentences.slice(-2).join(" ") || lastSentence;
-  if (/\?$/.test(lastSentence)) {
-    issues.push("The ending still reads like a question instead of a settled bedtime close.");
-  }
-  if (hasCliffhangerEnding(lastTwoSentences)) {
-    issues.push("The ending still sounds like a teaser or cliffhanger.");
+  // Cliffhanger and question-ending checks use English regex — skip for non-English
+  if (isEnglish) {
+    if (/\?$/.test(lastSentence)) {
+      issues.push("The ending still reads like a question instead of a settled bedtime close.");
+    }
+    if (hasCliffhangerEnding(lastTwoSentences)) {
+      issues.push("The ending still sounds like a teaser or cliffhanger.");
+    }
   }
 
-  const mixedDialectIssue = detectMixedDialectIssue(story, normalizeStoryLocale(dialect));
-  if (mixedDialectIssue) {
-    issues.push(mixedDialectIssue);
+  // Dialect mixing check is only meaningful for English variants
+  if (isEnglish) {
+    const mixedDialectIssue = detectMixedDialectIssue(story, normalizeStoryLocale(dialect));
+    if (mixedDialectIssue) {
+      issues.push(mixedDialectIssue);
+    }
   }
 
   return issues;
