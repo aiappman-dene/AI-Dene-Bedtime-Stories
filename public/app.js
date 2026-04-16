@@ -7842,7 +7842,7 @@ async function handleGenerate(mode) {
       interests,
       length: "medium",
       mode: "today",
-      language: getCurrentLanguage(), dialect: getCurrentLanguage(),
+      language: getCurrentLanguage(), dialect: cachedDialect,
       dayBeats,
       dayMood: dayMood || undefined,
       appearance: child.appearance || undefined,
@@ -7872,7 +7872,7 @@ async function handleGenerate(mode) {
       interests,
       length: storyLength,
       mode: "random",
-      language: getCurrentLanguage(), dialect: getCurrentLanguage(),
+      language: getCurrentLanguage(), dialect: cachedDialect,
       appearance: child.appearance || undefined,
       globalInspiration: globalIdeas.length ? globalIdeas : undefined,
     };
@@ -7904,7 +7904,7 @@ async function handleGenerate(mode) {
       interests,
       length: storyLength,
       mode: "hero",
-      language: getCurrentLanguage(), dialect: getCurrentLanguage(),
+      language: getCurrentLanguage(), dialect: cachedDialect,
       customIdea: rawIdea,
       seriesContext: seriesContext || undefined,
       appearance: child.appearance || undefined,
@@ -8141,7 +8141,7 @@ async function handleGenerate(mode) {
             headers: await buildAuthenticatedJsonHeaders(),
             body: JSON.stringify({
               story: rawFallback,
-              language: getCurrentLanguage(), dialect: getCurrentLanguage(),
+              language: getCurrentLanguage(), dialect: cachedDialect,
               mode: "edit",
             }),
           });

@@ -360,13 +360,19 @@
 
     const length = mode === "long" ? "long" : "medium";
 
+    // `dialect` here is actually the full language code (e.g. "fr").
+    // Send it as `language` so the server uses the correct non-English prompt.
+    // `dialect` must be en-GB or en-US only (server validator requirement).
+    const langCode = dialect || "en-GB";
+    const dialectCode = (langCode === "en-US") ? "en-US" : "en-GB";
     return {
       name,
       age,
       interests,
       length,
       mode: "random",
-      dialect: dialect || "en-GB",
+      language: langCode,
+      dialect: dialectCode,
     };
   }
 
