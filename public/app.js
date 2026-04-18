@@ -392,6 +392,10 @@ const UI_STRINGS = {
     alert_save_child_fail: "Could not save child. Please try again.",
     alert_remove_story_fail: "Could not remove the story. Please try again.",
     alert_lang_save_fail: "Could not save language preference. Please try again.",
+    offline_title: "No connection tonight",
+    offline_body: "Stories need an internet connection. Your saved stories are available in your Library.",
+    offline_library_btn: "Go to Library",
+    offline_retry_btn: "Try Again",
   },
   "fr": {
     tagline: "Des histoires magiques, créées juste pour votre enfant",
@@ -519,6 +523,10 @@ const UI_STRINGS = {
     alert_save_child_fail: "Impossible d'enregistrer l'enfant. Veuillez réessayer.",
     alert_remove_story_fail: "Impossible de supprimer l'histoire. Veuillez réessayer.",
     alert_lang_save_fail: "Impossible d'enregistrer la préférence de langue. Veuillez réessayer.",
+    offline_title: "Pas de connexion ce soir",
+    offline_body: "Les histoires ont besoin d'une connexion internet. Vos histoires enregistrées sont dans votre Bibliothèque.",
+    offline_library_btn: "Aller à la Bibliothèque",
+    offline_retry_btn: "Réessayer",
   },
   "es": {
     tagline: "Historias mágicas, creadas solo para tu hijo",
@@ -646,6 +654,10 @@ const UI_STRINGS = {
     alert_save_child_fail: "No se pudo guardar al niño. Inténtalo de nuevo.",
     alert_remove_story_fail: "No se pudo eliminar la historia. Inténtalo de nuevo.",
     alert_lang_save_fail: "No se pudo guardar la preferencia de idioma. Inténtalo de nuevo.",
+    offline_title: "Sin conexión esta noche",
+    offline_body: "Las historias necesitan internet. Tus historias guardadas están en tu Biblioteca.",
+    offline_library_btn: "Ir a la Biblioteca",
+    offline_retry_btn: "Intentar de nuevo",
   },
   "pt": {
     tagline: "Histórias mágicas, criadas só para o seu filho",
@@ -773,6 +785,10 @@ const UI_STRINGS = {
     alert_save_child_fail: "Não foi possível guardar o filho. Por favor tente novamente.",
     alert_remove_story_fail: "Não foi possível remover a história. Por favor tente novamente.",
     alert_lang_save_fail: "Não foi possível guardar a preferência de idioma. Por favor tente novamente.",
+    offline_title: "Sem conexão esta noite",
+    offline_body: "As histórias precisam de internet. As suas histórias guardadas estão na sua Biblioteca.",
+    offline_library_btn: "Ir para a Biblioteca",
+    offline_retry_btn: "Tentar novamente",
   },
   "de": {
     tagline: "Magische Geschichten, genau für dein Kind gemacht",
@@ -900,6 +916,10 @@ const UI_STRINGS = {
     alert_save_child_fail: "Kind konnte nicht gespeichert werden. Bitte versuche es erneut.",
     alert_remove_story_fail: "Geschichte konnte nicht entfernt werden. Bitte versuche es erneut.",
     alert_lang_save_fail: "Spracheinstellung konnte nicht gespeichert werden. Bitte versuche es erneut.",
+    offline_title: "Keine Verbindung heute Nacht",
+    offline_body: "Geschichten brauchen Internet. Deine gespeicherten Geschichten sind in deiner Bibliothek.",
+    offline_library_btn: "Zur Bibliothek",
+    offline_retry_btn: "Erneut versuchen",
   },
   "it": {
     tagline: "Storie magiche, create apposta per il tuo bambino",
@@ -1027,6 +1047,10 @@ const UI_STRINGS = {
     alert_save_child_fail: "Impossibile salvare il bambino. Riprova.",
     alert_remove_story_fail: "Impossibile rimuovere la storia. Riprova.",
     alert_lang_save_fail: "Impossibile salvare la preferenza lingua. Riprova.",
+    offline_title: "Nessuna connessione stasera",
+    offline_body: "Le storie hanno bisogno di internet. Le tue storie salvate sono nella tua Biblioteca.",
+    offline_library_btn: "Vai alla Biblioteca",
+    offline_retry_btn: "Riprova",
   },
   "ja": {
     tagline: "お子様のために作られた、魔法のようなお話",
@@ -1154,6 +1178,10 @@ const UI_STRINGS = {
     alert_save_child_fail: "お子様を保存できませんでした。もう一度お試しください。",
     alert_remove_story_fail: "お話を削除できませんでした。もう一度お試しください。",
     alert_lang_save_fail: "言語設定を保存できませんでした。もう一度お試しください。",
+    offline_title: "今夜はオフラインです",
+    offline_body: "お話にはインターネット接続が必要です。保存したお話はライブラリでご覧いただけます。",
+    offline_library_btn: "ライブラリへ",
+    offline_retry_btn: "もう一度試す",
   },
   "zh-CN": {
     tagline: "神奇的故事，专为您的孩子而创",
@@ -1281,6 +1309,10 @@ const UI_STRINGS = {
     alert_save_child_fail: "无法保存孩子。请重试。",
     alert_remove_story_fail: "无法删除故事。请重试。",
     alert_lang_save_fail: "无法保存语言首选项。请重试。",
+    offline_title: "今晚无法连接",
+    offline_body: "故事需要网络连接。您保存的故事可在图书馆中查看。",
+    offline_library_btn: "前往图书馆",
+    offline_retry_btn: "重试",
   },
   "ar": {
     tagline: "قصص سحرية، مصنوعة خصيصاً لطفلك",
@@ -1408,6 +1440,10 @@ const UI_STRINGS = {
     alert_save_child_fail: "تعذّر حفظ الطفل. يرجى المحاولة مرة أخرى.",
     alert_remove_story_fail: "تعذّر إزالة القصة. يرجى المحاولة مرة أخرى.",
     alert_lang_save_fail: "تعذّر حفظ تفضيل اللغة. يرجى المحاولة مرة أخرى.",
+    offline_title: "لا اتصال الليلة",
+    offline_body: "تحتاج القصص إلى اتصال بالإنترنت. قصصك المحفوظة متاحة في مكتبتك.",
+    offline_library_btn: "اذهب إلى المكتبة",
+    offline_retry_btn: "حاول مجدداً",
   },
   "hi": {
     tagline: "जादुई कहानियाँ, बस आपके बच्चे के लिए बनाई गई",
@@ -1535,6 +1571,10 @@ const UI_STRINGS = {
     alert_save_child_fail: "बच्चा सहेजा नहीं जा सका। कृपया फिर कोशिश करें।",
     alert_remove_story_fail: "कहानी नहीं हटाई जा सकी। कृपया फिर कोशिश करें।",
     alert_lang_save_fail: "भाषा प्राथमिकता सहेजी नहीं जा सकी। कृपया फिर कोशिश करें।",
+    offline_title: "आज रात कोई कनेक्शन नहीं",
+    offline_body: "कहानियों के लिए इंटरनेट की ज़रूरत है। आपकी सहेजी गई कहानियाँ आपकी लाइब्रेरी में हैं।",
+    offline_library_btn: "लाइब्रेरी जाएं",
+    offline_retry_btn: "फिर से कोशिश करें",
   },
   "ur": {
     tagline: "جادوئی کہانیاں، صرف آپ کے بچے کے لیے بنائی گئی",
@@ -1662,6 +1702,10 @@ const UI_STRINGS = {
     alert_save_child_fail: "بچہ محفوظ نہیں ہو سکا۔ براہ کرم دوبارہ کوشش کریں۔",
     alert_remove_story_fail: "کہانی نہیں ہٹائی جا سکی۔ براہ کرم دوبارہ کوشش کریں۔",
     alert_lang_save_fail: "زبان کی ترجیح محفوظ نہیں ہو سکی۔ براہ کرم دوبارہ کوشش کریں۔",
+    offline_title: "آج رات کوئی کنکشن نہیں",
+    offline_body: "کہانیوں کے لیے انٹرنیٹ کی ضرورت ہے۔ آپ کی محفوظ کہانیاں آپ کی لائبریری میں ہیں۔",
+    offline_library_btn: "لائبریری جائیں",
+    offline_retry_btn: "دوبارہ کوشش کریں",
   },
 };
 /* eslint-enable quote-props */
@@ -1774,6 +1818,44 @@ function matchReplacementCase(source, replacement) {
     return replacement.charAt(0).toUpperCase() + replacement.slice(1);
   }
   return replacement;
+}
+
+function showOfflineNoConnection() {
+  const lang = getCurrentLanguage();
+  const isRTL = RTL_LANGUAGES.has(lang);
+  const overlay = document.createElement("div");
+  overlay.id = "offlineNoConnectionOverlay";
+  overlay.style.cssText = [
+    "position:fixed;inset:0;background:rgba(15,15,35,0.96);z-index:10000",
+    "display:flex;flex-direction:column;align-items:center;justify-content:center",
+    "padding:32px 24px;text-align:center;",
+    isRTL ? "direction:rtl;" : "",
+  ].join(";");
+
+  const moon = document.createElement("div");
+  moon.textContent = "🌙";
+  moon.style.cssText = "font-size:56px;margin-bottom:20px;";
+
+  const title = document.createElement("h2");
+  title.textContent = t("offline_title");
+  title.style.cssText = "color:#fff;font-size:22px;font-weight:700;margin:0 0 12px;";
+
+  const body = document.createElement("p");
+  body.textContent = t("offline_body");
+  body.style.cssText = "color:rgba(255,255,255,0.8);font-size:15px;line-height:1.5;margin:0 0 28px;max-width:320px;";
+
+  const libraryBtn = document.createElement("button");
+  libraryBtn.textContent = t("offline_library_btn");
+  libraryBtn.style.cssText = "background:#6c63ff;color:#fff;border:none;border-radius:12px;padding:14px 28px;font-size:16px;font-weight:600;cursor:pointer;margin-bottom:12px;width:100%;max-width:280px;";
+  libraryBtn.onclick = () => { overlay.remove(); navigateTo("library"); };
+
+  const retryBtn = document.createElement("button");
+  retryBtn.textContent = t("offline_retry_btn");
+  retryBtn.style.cssText = "background:transparent;color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.2);border-radius:12px;padding:12px 28px;font-size:15px;cursor:pointer;width:100%;max-width:280px;";
+  retryBtn.onclick = () => overlay.remove();
+
+  overlay.append(moon, title, body, libraryBtn, retryBtn);
+  document.body.appendChild(overlay);
 }
 
 function applyDialectToText(text, dialect = getCurrentDialect()) {
@@ -8091,17 +8173,15 @@ async function handleGenerate(mode) {
 
     console.log("API failed, falling back to procedural story engine");
 
-    // If the user selected a non-English language, warn them that the offline
-    // story will be in English (procedural engine is English-only).
+    // Non-English users: don't serve an English story they can't read.
+    // Show a full-screen offline message in their language instead.
     const fallbackLang = getCurrentLanguage();
     if (!["en-GB", "en-US"].includes(fallbackLang)) {
-      const langLabel = LANGUAGE_LABELS[fallbackLang] || fallbackLang;
-      const banner = document.createElement("div");
-      banner.style.cssText =
-        "position:fixed;top:0;left:0;right:0;background:#c0392b;color:#fff;text-align:center;padding:12px 16px;font-size:14px;z-index:9999;";
-      banner.textContent = `Story couldn't be generated in ${langLabel} right now — showing an English story instead. Please check your connection and try again.`;
-      document.body.prepend(banner);
-      setTimeout(() => banner.remove(), 7000);
+      hideLoading();
+      if (button) { button.disabled = false; button.textContent = originalText; }
+      generationInProgress = false;
+      showOfflineNoConnection();
+      return;
     }
 
     const quickWish = "";
