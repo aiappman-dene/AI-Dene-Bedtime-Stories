@@ -1661,3 +1661,279 @@ select {
   opacity: 0.45;
   cursor: not-allowed;
 }
+
+/* =============================================================================
+   Home Page — Premium Hero & Story Grid
+   ============================================================================= */
+
+/* Remove side padding on home scroll so hero bleeds edge-to-edge */
+.home-scroll {
+  padding-left: 0;
+  padding-right: 0;
+}
+.home-scroll .card,
+.home-scroll .paywall-card,
+.home-scroll .welcome-banner {
+  margin-left: 16px;
+  margin-right: 16px;
+}
+
+/* ── Hero ── */
+.home-hero {
+  position: relative;
+  background: linear-gradient(150deg, #0d0628 0%, #1a0a4a 55%, #240c5e 100%);
+  padding: 52px 24px 36px;
+  overflow: hidden;
+  margin-bottom: 0;
+}
+
+.home-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to right, rgba(0,0,0,0.45) 0%, transparent 65%);
+  pointer-events: none;
+}
+
+.home-hero-glow {
+  position: absolute;
+  top: -50px;
+  right: -70px;
+  width: 280px;
+  height: 280px;
+  background: radial-gradient(circle, rgba(255,100,199,0.2) 0%, transparent 68%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.home-hero-content {
+  position: relative;
+  z-index: 1;
+}
+
+.home-greeting {
+  font-size: 14px;
+  color: rgba(255,255,255,0.5);
+  margin: 0 0 6px;
+  letter-spacing: 0.03em;
+}
+
+.home-hero-title {
+  font-size: 25px;
+  font-weight: 700;
+  color: #fff;
+  margin: 0 0 22px;
+  line-height: 1.28;
+}
+
+/* ── Profile row ── */
+.home-profile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.home-avatar {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #7b61ff, #ff6ec7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 19px;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+  box-shadow: 0 2px 12px rgba(123,97,255,0.35);
+}
+
+.home-profile-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.home-profile-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.home-profile-meta {
+  font-size: 12px;
+  color: rgba(255,255,255,0.5);
+}
+
+.btn-change {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 20px;
+  color: rgba(255,255,255,0.75);
+  font-size: 13px;
+  padding: 6px 15px;
+  cursor: pointer;
+  font-family: var(--font);
+  white-space: nowrap;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+.btn-change:hover { background: rgba(255,255,255,0.16); }
+
+/* ── CTA button ── */
+.btn-cta {
+  display: block;
+  width: 100%;
+  padding: 16px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #7b61ff 0%, #ff6ec7 100%);
+  color: #fff;
+  font-size: 17px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font);
+  letter-spacing: 0.01em;
+  box-shadow: 0 4px 22px rgba(123,97,255,0.42);
+  transition: transform 0.15s, box-shadow 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-cta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(123,97,255,0.58);
+}
+.btn-cta:active { transform: scale(0.98); }
+
+/* ── Story grid section ── */
+.story-grid-section {
+  padding: 20px 16px 8px;
+}
+
+.story-grid-heading {
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(255,255,255,0.45);
+  margin: 0 0 14px 4px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.story-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* ── Grid cards ── */
+.grid-card {
+  background: rgba(255,255,255,0.055);
+  border: 1px solid rgba(255,255,255,0.09);
+  border-radius: 20px;
+  padding: 18px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.2s, transform 0.15s;
+  color: var(--text);
+  font-family: var(--font);
+  -webkit-tap-highlight-color: transparent;
+}
+.grid-card:hover {
+  background: rgba(255,255,255,0.1);
+  transform: translateY(-2px);
+}
+.grid-card:active { transform: scale(0.97); }
+
+.grid-card-today {
+  grid-column: span 2;
+  background: linear-gradient(135deg, rgba(18,8,52,0.85) 0%, rgba(38,14,90,0.85) 100%);
+  border-color: rgba(123,97,255,0.28);
+}
+.grid-card-today:hover {
+  background: linear-gradient(135deg, rgba(26,12,70,0.95) 0%, rgba(48,18,110,0.95) 100%);
+}
+
+.grid-card-idea {
+  grid-column: span 2;
+  background: rgba(255,100,199,0.07);
+  border-color: rgba(255,110,199,0.2);
+}
+.grid-card-idea:hover { background: rgba(255,100,199,0.13); }
+
+.grid-icon-wrap {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.grid-card-body h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  margin: 0 0 3px;
+}
+.grid-card-body p {
+  font-size: 12px;
+  color: rgba(255,255,255,0.56);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.grid-badge {
+  display: inline-block;
+  background: rgba(123,97,255,0.22);
+  color: rgba(195,175,255,0.9);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  align-self: flex-start;
+}
+
+.grid-btns {
+  display: flex;
+  gap: 7px;
+  margin-top: 2px;
+}
+.grid-btns .choice-hub-btn {
+  flex: 1;
+  font-size: 12px;
+  padding: 8px 4px;
+  min-width: 0;
+}
+
+/* ── Nav create (+) button ── */
+.nav-create {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #7b61ff 0%, #ff6ec7 100%);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 28px;
+  font-weight: 300;
+  color: #fff;
+  line-height: 1;
+  box-shadow: 0 4px 18px rgba(123,97,255,0.5);
+  transition: transform 0.15s, box-shadow 0.15s;
+  margin-bottom: 4px;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
+}
+.nav-create:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 26px rgba(123,97,255,0.68);
+}
+.nav-create:active { transform: scale(0.92); }

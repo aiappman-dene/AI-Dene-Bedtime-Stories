@@ -95,19 +95,7 @@
     <!-- HOME PAGE                                                           -->
     <!-- ================================================================== -->
     <div id="pageHome" class="page hidden">
-      <div class="page-scroll">
-
-        <!-- Header -->
-        <div class="card header-card">
-          <div class="header-top">
-            <div class="brand brand-sm">
-              <span class="brand-icon">&#9733;</span>
-              <h1>DreamTalez</h1>
-            </div>
-          </div>
-          <p class="tagline" data-i18n="tagline">Magical stories, made just for your child</p>
-          <p id="trialBanner" class="trial-banner hidden"></p>
-        </div>
+      <div class="page-scroll home-scroll">
 
         <!-- Paywall -->
         <div id="paywallCard" class="card paywall-card hidden">
@@ -127,68 +115,87 @@
           <p class="hint paywall-note" data-i18n="paywall_note">Your saved stories stay yours — readable anytime.</p>
         </div>
 
-        <!-- Welcome banner (first-time) -->
+        <!-- Welcome banner (first-time / no children) -->
         <div id="welcomeBanner" class="card welcome-banner hidden">
           <h2 data-i18n="welcome_title">Welcome to DreamTalez &#9733;</h2>
           <p class="hint" data-i18n="welcome_hint">Add your first child to start creating magical stories.</p>
           <button type="button" class="btn primary" onclick="navigateTo('children')" data-i18n="add_first_child">Add Your First Child</button>
         </div>
 
-        <!-- Active child card -->
-        <div id="activeChildCard" class="card child-card hidden">
-          <div class="child-card-top">
-            <div class="child-card-info">
-              <h2 id="activeChildName" class="child-card-name">Sophia</h2>
-              <p id="activeChildMeta" class="child-card-meta">Age 6 &bull; Girl</p>
+        <!-- ── HERO SECTION ── -->
+        <div id="activeChildCard" class="home-hero hidden">
+          <div class="home-hero-glow"></div>
+          <div class="home-hero-content">
+            <p id="homeGreeting" class="home-greeting"></p>
+            <h1 id="heroTitle" class="home-hero-title"></h1>
+
+            <div class="home-profile">
+              <div id="homeAvatar" class="home-avatar"></div>
+              <div class="home-profile-info">
+                <span id="activeChildName" class="home-profile-name"></span>
+                <span id="activeChildMeta" class="home-profile-meta"></span>
+              </div>
+              <button type="button" class="btn-change" onclick="navigateTo('children')" data-i18n="change_btn">Change</button>
             </div>
-            <button type="button" class="btn ghost btn-sm" onclick="navigateTo('children')" data-i18n="change_btn">Change</button>
+
+            <p id="streakDisplay" class="streak-display hidden"></p>
+            <p id="trialBanner" class="trial-banner hidden"></p>
+
+            <button type="button" class="btn-cta" onclick="navigateTo('today')" data-i18n="cta_create">&#10024; Create New Story</button>
           </div>
-          <p id="streakDisplay" class="streak-display hidden"></p>
         </div>
 
-        <!-- Story choices -->
-        <div id="storyChoices" class="story-choices hidden">
+        <!-- ── STORY GRID ── -->
+        <div id="storyChoices" class="story-grid-section hidden">
+          <h2 class="story-grid-heading" data-i18n="choose_story">Choose your story</h2>
+          <div class="story-grid">
 
-          <!-- Story From Today — primary feature -->
-          <button type="button" class="story-choice-card story-choice-today" onclick="navigateTo('today')">
-            <span class="choice-icon">&#9733;</span>
-            <div class="choice-text">
-              <h3 data-i18n="story_today_title">Story From Today</h3>
-              <p data-i18n="story_today_desc">Turn your child's real day into a calming bedtime story</p>
-            </div>
-            <span class="choice-badge" data-i18n="story_today_badge">Daily habit</span>
-          </button>
+            <!-- Story From Today -->
+            <button type="button" class="grid-card grid-card-today" onclick="navigateTo('today')">
+              <div class="grid-icon-wrap">&#9733;</div>
+              <div class="grid-card-body">
+                <h3 data-i18n="story_today_title">Story From Today</h3>
+                <p data-i18n="story_today_desc">Turn your child's real day into a calming bedtime story</p>
+              </div>
+              <span class="grid-badge" data-i18n="story_today_badge">Daily habit</span>
+            </button>
 
-          <!-- Medium Story -->
-          <div class="story-choice-card story-choice-hub">
-            <div class="choice-top">
-              <span class="choice-icon">&#128218;</span>
-              <div class="choice-text">
+            <!-- Medium Story -->
+            <div class="grid-card grid-card-standard">
+              <div class="grid-icon-wrap">&#128218;</div>
+              <div class="grid-card-body">
                 <h3 data-i18n="medium_story">Medium Story</h3>
                 <p data-i18n="medium_story_desc">A 6–7 min personalised bedtime story</p>
               </div>
+              <div class="grid-btns">
+                <button type="button" id="surpriseMediumBtn" class="btn ghost choice-hub-btn" onclick="handleGenerate('medium-surprise')" data-i18n="surprise_me">&#127922; Surprise Me</button>
+                <button type="button" class="btn ghost choice-hub-btn" onclick="openCreatePage('medium')" data-i18n="my_idea">&#9999;&#65039; My Idea</button>
+              </div>
             </div>
-            <div class="choice-hub-btns">
-              <button type="button" id="surpriseMediumBtn" class="btn ghost choice-hub-btn" onclick="handleGenerate('medium-surprise')" data-i18n="surprise_me">&#127922; Surprise Me</button>
-              <button type="button" class="btn ghost choice-hub-btn" onclick="openCreatePage('medium')" data-i18n="my_idea">&#9999;&#65039; My Idea</button>
-            </div>
-          </div>
 
-          <!-- Long Story -->
-          <div class="story-choice-card story-choice-hub">
-            <div class="choice-top">
-              <span class="choice-icon">&#128218;</span>
-              <div class="choice-text">
+            <!-- Long Story -->
+            <div class="grid-card grid-card-standard">
+              <div class="grid-icon-wrap">&#128218;</div>
+              <div class="grid-card-body">
                 <h3 data-i18n="long_story">Long Story</h3>
                 <p data-i18n="long_story_desc">A longer adventure (~10 min) for your child</p>
               </div>
+              <div class="grid-btns">
+                <button type="button" id="surpriseLongBtn" class="btn ghost choice-hub-btn" onclick="handleGenerate('long-surprise')" data-i18n="surprise_me">&#127922; Surprise Me</button>
+                <button type="button" class="btn ghost choice-hub-btn" onclick="openCreatePage('long')" data-i18n="my_idea">&#9999;&#65039; My Idea</button>
+              </div>
             </div>
-            <div class="choice-hub-btns">
-              <button type="button" id="surpriseLongBtn" class="btn ghost choice-hub-btn" onclick="handleGenerate('long-surprise')" data-i18n="surprise_me">&#127922; Surprise Me</button>
-              <button type="button" class="btn ghost choice-hub-btn" onclick="openCreatePage('long')" data-i18n="my_idea">&#9999;&#65039; My Idea</button>
-            </div>
-          </div>
 
+            <!-- My Idea -->
+            <button type="button" class="grid-card grid-card-idea" onclick="openCreatePage('medium')">
+              <div class="grid-icon-wrap">&#9999;&#65039;</div>
+              <div class="grid-card-body">
+                <h3 data-i18n="my_idea_card">My Idea</h3>
+                <p data-i18n="my_idea_card_desc">Tell us what tonight's story should be about</p>
+              </div>
+            </button>
+
+          </div>
         </div>
 
       </div>
@@ -541,6 +548,7 @@
         <span class="nav-icon">&#9776;</span>
         <span class="nav-label" data-i18n="library_nav">Library</span>
       </button>
+      <button type="button" class="nav-create" aria-label="Create story" onclick="navigateTo('today')">+</button>
       <button type="button" class="nav-item" data-page="settings" onclick="navigateTo('settings')">
         <span class="nav-icon">&#9881;</span>
         <span class="nav-label" data-i18n="settings_nav">Settings</span>

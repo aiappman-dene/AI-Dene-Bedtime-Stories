@@ -396,6 +396,15 @@ const UI_STRINGS = {
     offline_body: "Stories need an internet connection. Your saved stories are available in your Library.",
     offline_library_btn: "Go to Library",
     offline_retry_btn: "Try Again",
+    hero_greeting_morning: "Good morning,",
+    hero_greeting_afternoon: "Good afternoon,",
+    hero_greeting_evening: "Good evening,",
+    hero_greeting_night: "Goodnight,",
+    hero_title: "{{name}}'s world is waiting \u2728",
+    cta_create: "\u2728 Create New Story",
+    choose_story: "Choose your story",
+    my_idea_card: "My Idea",
+    my_idea_card_desc: "Tell us what tonight\u2019s story should be about",
   },
   "fr": {
     tagline: "Des histoires magiques, créées juste pour votre enfant",
@@ -527,6 +536,15 @@ const UI_STRINGS = {
     offline_body: "Les histoires ont besoin d'une connexion internet. Vos histoires enregistrées sont dans votre Bibliothèque.",
     offline_library_btn: "Aller à la Bibliothèque",
     offline_retry_btn: "Réessayer",
+    hero_greeting_morning: "Bonjour,",
+    hero_greeting_afternoon: "Bon après-midi,",
+    hero_greeting_evening: "Bonsoir,",
+    hero_greeting_night: "Bonne nuit,",
+    hero_title: "Le monde de {{name}} vous attend \u2728",
+    cta_create: "\u2728 Créer une nouvelle histoire",
+    choose_story: "Choisissez votre histoire",
+    my_idea_card: "Mon idée",
+    my_idea_card_desc: "Dites-nous de quoi devrait parler l\u2019histoire ce soir",
   },
   "es": {
     tagline: "Historias mágicas, creadas solo para tu hijo",
@@ -658,6 +676,15 @@ const UI_STRINGS = {
     offline_body: "Las historias necesitan internet. Tus historias guardadas están en tu Biblioteca.",
     offline_library_btn: "Ir a la Biblioteca",
     offline_retry_btn: "Intentar de nuevo",
+    hero_greeting_morning: "Buenos días,",
+    hero_greeting_afternoon: "Buenas tardes,",
+    hero_greeting_evening: "Buenas tardes,",
+    hero_greeting_night: "Buenas noches,",
+    hero_title: "El mundo de {{name}} te espera \u2728",
+    cta_create: "\u2728 Crear nueva historia",
+    choose_story: "Elige tu historia",
+    my_idea_card: "Mi idea",
+    my_idea_card_desc: "Cuéntanos de qué debería tratar la historia esta noche",
   },
   "pt": {
     tagline: "Histórias mágicas, criadas só para o seu filho",
@@ -789,6 +816,15 @@ const UI_STRINGS = {
     offline_body: "As histórias precisam de internet. As suas histórias guardadas estão na sua Biblioteca.",
     offline_library_btn: "Ir para a Biblioteca",
     offline_retry_btn: "Tentar novamente",
+    hero_greeting_morning: "Bom dia,",
+    hero_greeting_afternoon: "Boa tarde,",
+    hero_greeting_evening: "Boa tarde,",
+    hero_greeting_night: "Boa noite,",
+    hero_title: "O mundo de {{name}} est\u00e1 \u00e0 espera \u2728",
+    cta_create: "\u2728 Criar nova história",
+    choose_story: "Escolha a sua história",
+    my_idea_card: "Minha ideia",
+    my_idea_card_desc: "Diga-nos sobre o que deve ser a história esta noite",
   },
   "de": {
     tagline: "Magische Geschichten, genau für dein Kind gemacht",
@@ -920,6 +956,15 @@ const UI_STRINGS = {
     offline_body: "Geschichten brauchen Internet. Deine gespeicherten Geschichten sind in deiner Bibliothek.",
     offline_library_btn: "Zur Bibliothek",
     offline_retry_btn: "Erneut versuchen",
+    hero_greeting_morning: "Guten Morgen,",
+    hero_greeting_afternoon: "Guten Tag,",
+    hero_greeting_evening: "Guten Abend,",
+    hero_greeting_night: "Gute Nacht,",
+    hero_title: "{{name}}s Welt wartet auf dich \u2728",
+    cta_create: "\u2728 Neue Geschichte erstellen",
+    choose_story: "W\u00e4hle deine Geschichte",
+    my_idea_card: "Meine Idee",
+    my_idea_card_desc: "Erz\u00e4hl uns, worum es in der Geschichte heute Nacht gehen soll",
   },
   "it": {
     tagline: "Storie magiche, create apposta per il tuo bambino",
@@ -1051,6 +1096,15 @@ const UI_STRINGS = {
     offline_body: "Le storie hanno bisogno di internet. Le tue storie salvate sono nella tua Biblioteca.",
     offline_library_btn: "Vai alla Biblioteca",
     offline_retry_btn: "Riprova",
+    hero_greeting_morning: "Buongiorno,",
+    hero_greeting_afternoon: "Buon pomeriggio,",
+    hero_greeting_evening: "Buonasera,",
+    hero_greeting_night: "Buonanotte,",
+    hero_title: "Il mondo di {{name}} ti aspetta \u2728",
+    cta_create: "\u2728 Crea una nuova storia",
+    choose_story: "Scegli la tua storia",
+    my_idea_card: "La mia idea",
+    my_idea_card_desc: "Dicci di cosa dovrebbe parlare la storia stasera",
   },
   "ja": {
     tagline: "お子様のために作られた、魔法のようなお話",
@@ -1182,6 +1236,15 @@ const UI_STRINGS = {
     offline_body: "お話にはインターネット接続が必要です。保存したお話はライブラリでご覧いただけます。",
     offline_library_btn: "ライブラリへ",
     offline_retry_btn: "もう一度試す",
+    hero_greeting_morning: "おはようございます、",
+    hero_greeting_afternoon: "こんにちは、",
+    hero_greeting_evening: "こんばんは、",
+    hero_greeting_night: "おやすみなさい、",
+    hero_title: "{{name}}の世界があなたを待っています \u2728",
+    cta_create: "\u2728 新しいお話を作る",
+    choose_story: "お話を選んでください",
+    my_idea_card: "マイアイデア",
+    my_idea_card_desc: "今夜のお話のテーマを教えてください",
   },
   "zh-CN": {
     tagline: "神奇的故事，专为您的孩子而创",
@@ -1313,6 +1376,15 @@ const UI_STRINGS = {
     offline_body: "故事需要网络连接。您保存的故事可在图书馆中查看。",
     offline_library_btn: "前往图书馆",
     offline_retry_btn: "重试",
+    hero_greeting_morning: "早上好，",
+    hero_greeting_afternoon: "下午好，",
+    hero_greeting_evening: "晚上好，",
+    hero_greeting_night: "晚安，",
+    hero_title: "{{name}}的世界等着你 \u2728",
+    cta_create: "\u2728 创作新故事",
+    choose_story: "选择你的故事",
+    my_idea_card: "我的想法",
+    my_idea_card_desc: "告诉我们今晚的故事应该讲什么",
   },
   "ar": {
     tagline: "قصص سحرية، مصنوعة خصيصاً لطفلك",
@@ -1444,6 +1516,15 @@ const UI_STRINGS = {
     offline_body: "تحتاج القصص إلى اتصال بالإنترنت. قصصك المحفوظة متاحة في مكتبتك.",
     offline_library_btn: "اذهب إلى المكتبة",
     offline_retry_btn: "حاول مجدداً",
+    hero_greeting_morning: "صباح الخير،",
+    hero_greeting_afternoon: "مساء الخير،",
+    hero_greeting_evening: "مساء الخير،",
+    hero_greeting_night: "تصبح على خير،",
+    hero_title: "عالم {{name}} ينتظرك \u2728",
+    cta_create: "\u2728 إنشاء قصة جديدة",
+    choose_story: "اختر قصتك",
+    my_idea_card: "فكرتي",
+    my_idea_card_desc: "أخبرنا بما يجب أن تتحدث عنه القصة الليلة",
   },
   "hi": {
     tagline: "जादुई कहानियाँ, बस आपके बच्चे के लिए बनाई गई",
@@ -1575,6 +1656,15 @@ const UI_STRINGS = {
     offline_body: "कहानियों के लिए इंटरनेट की ज़रूरत है। आपकी सहेजी गई कहानियाँ आपकी लाइब्रेरी में हैं।",
     offline_library_btn: "लाइब्रेरी जाएं",
     offline_retry_btn: "फिर से कोशिश करें",
+    hero_greeting_morning: "सुप्रभात,",
+    hero_greeting_afternoon: "नमस्ते,",
+    hero_greeting_evening: "शुभ संध्या,",
+    hero_greeting_night: "शुभ रात्रि,",
+    hero_title: "{{name}} की दुनिया आपका इंतज़ार कर रही है \u2728",
+    cta_create: "\u2728 नई कहानी बनाएं",
+    choose_story: "अपनी कहानी चुनें",
+    my_idea_card: "मेरा विचार",
+    my_idea_card_desc: "हमें बताएं कि आज रात की कहानी किस बारे में होनी चाहिए",
   },
   "ur": {
     tagline: "جادوئی کہانیاں، صرف آپ کے بچے کے لیے بنائی گئی",
@@ -1706,6 +1796,15 @@ const UI_STRINGS = {
     offline_body: "کہانیوں کے لیے انٹرنیٹ کی ضرورت ہے۔ آپ کی محفوظ کہانیاں آپ کی لائبریری میں ہیں۔",
     offline_library_btn: "لائبریری جائیں",
     offline_retry_btn: "دوبارہ کوشش کریں",
+    hero_greeting_morning: "صبح بخیر،",
+    hero_greeting_afternoon: "دوپہر بخیر،",
+    hero_greeting_evening: "شام بخیر،",
+    hero_greeting_night: "شب بخیر،",
+    hero_title: "{{name}} کی دنیا آپ کا انتظار کر رہی ہے \u2728",
+    cta_create: "\u2728 نئی کہانی بنائیں",
+    choose_story: "اپنی کہانی چنیں",
+    my_idea_card: "میرا خیال",
+    my_idea_card_desc: "ہمیں بتائیں کہ آج رات کی کہانی کس بارے میں ہونی چاہیے",
   },
 };
 /* eslint-enable quote-props */
@@ -7116,6 +7215,14 @@ function closeStoryCard() {
   navigateTo(previousPage || "home");
 }
 
+function getTimeGreeting() {
+  const h = new Date().getHours();
+  if (h < 12) return t("hero_greeting_morning");
+  if (h < 17) return t("hero_greeting_afternoon");
+  if (h < 21) return t("hero_greeting_evening");
+  return t("hero_greeting_night");
+}
+
 /** Update the active child card + story choices on the home page. */
 function updateHomeChildCard() {
   const childCard = $("activeChildCard");
@@ -7123,6 +7230,9 @@ function updateHomeChildCard() {
   const metaEl = $("activeChildMeta");
   const choicesEl = $("storyChoices");
   const welcomeEl = $("welcomeBanner");
+  const greetingEl = $("homeGreeting");
+  const heroTitleEl = $("heroTitle");
+  const avatarEl = $("homeAvatar");
 
   if (cachedChildren.length === 0) {
     if (childCard) childCard.classList.add("hidden");
@@ -7145,6 +7255,9 @@ function updateHomeChildCard() {
     if (g === "girl" || g === "boy") parts.push(g.charAt(0).toUpperCase() + g.slice(1));
     metaEl.textContent = parts.join(" \u2022 ");
   }
+  if (greetingEl) greetingEl.textContent = getTimeGreeting();
+  if (heroTitleEl) heroTitleEl.textContent = t("hero_title", { name: child.name || "Your child" });
+  if (avatarEl) avatarEl.textContent = (child.name || "?").charAt(0).toUpperCase();
   if (choicesEl) choicesEl.classList.remove("hidden");
 }
 
