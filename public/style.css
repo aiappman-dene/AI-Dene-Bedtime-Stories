@@ -1666,25 +1666,26 @@ select {
    Home Page — Premium Hero & Story Grid
    ============================================================================= */
 
-/* Remove side padding on home scroll so hero bleeds edge-to-edge */
+/* Home scroll: hero bleeds edge-to-edge, no gap at top */
 .home-scroll {
+  padding-top: 0;
   padding-left: 0;
   padding-right: 0;
 }
 .home-scroll .card,
 .home-scroll .paywall-card,
 .home-scroll .welcome-banner {
-  margin-left: 16px;
-  margin-right: 16px;
+  margin: 16px 16px 0;
 }
 
 /* ── Hero ── */
 .home-hero {
   position: relative;
   background: linear-gradient(150deg, #0d0628 0%, #1a0a4a 55%, #240c5e 100%);
-  padding: 52px 24px 36px;
+  padding: 56px 24px 36px;
   overflow: hidden;
   margin-bottom: 0;
+  border-bottom: 1px solid rgba(123,97,255,0.15);
 }
 
 .home-hero::before {
@@ -1719,11 +1720,12 @@ select {
 }
 
 .home-hero-title {
-  font-size: 25px;
+  font-size: 27px;
   font-weight: 700;
   color: #fff;
   margin: 0 0 22px;
-  line-height: 1.28;
+  line-height: 1.25;
+  text-shadow: 0 2px 16px rgba(123,97,255,0.3);
 }
 
 /* ── Profile row ── */
