@@ -131,7 +131,7 @@
           <div class="home-hero-content">
             <p id="homeGreeting" class="home-greeting-pill"></p>
             <h1 id="heroTitle" class="home-hero-title"></h1>
-            <p class="hero-sub">Create a beautiful bedtime story in seconds</p>
+            <p class="hero-sub" data-i18n="hero_sub">Create a beautiful bedtime story in seconds</p>
 
             <div class="home-profile">
               <div id="homeAvatar" class="home-avatar"></div>
@@ -152,43 +152,43 @@
 
         <!-- ── STORY CARDS ── -->
         <div id="storyChoices" class="story-section hidden">
-          <h2 class="section-title">&#10024; &mdash; Choose a Story &mdash;</h2>
+          <h2 class="section-title" data-i18n="choose_story">Choose your story</h2>
           <div class="story-cards-grid">
 
             <!-- Quick Dream (Medium Surprise) -->
             <div class="story-card card-purple" onclick="handleGenerate('medium-surprise')">
               <div class="story-card-art">&#127769;</div>
-              <div class="story-card-name">Quick Dream</div>
-              <div class="story-card-dur">5&ndash;7 min</div>
-              <div class="story-card-desc">A short, sweet story</div>
+              <div class="story-card-name" data-i18n="card_quick_name">Quick Dream</div>
+              <div class="story-card-dur" data-i18n="card_quick_dur">5–7 min</div>
+              <div class="story-card-desc" data-i18n="card_quick_desc">A short, sweet story</div>
               <button class="story-card-arrow" aria-hidden="true">&rarr;</button>
             </div>
 
             <!-- Magic Adventure (Long Surprise) -->
             <div class="story-card card-pink" onclick="handleGenerate('long-surprise')">
               <div class="story-card-art">&#11088;</div>
-              <div class="story-card-name">Magic Adventure</div>
-              <div class="story-card-dur">10+ min</div>
-              <div class="story-card-desc">A full magical journey</div>
+              <div class="story-card-name" data-i18n="card_magic_name">Magic Adventure</div>
+              <div class="story-card-dur" data-i18n="card_magic_dur">10+ min</div>
+              <div class="story-card-desc" data-i18n="card_magic_desc">A full magical journey</div>
               <button class="story-card-arrow" aria-hidden="true">&rarr;</button>
             </div>
 
             <!-- Sleepy Story (Story From Today) -->
             <div class="story-card card-blue" onclick="navigateTo('today')">
               <div class="story-card-art">&#128164;</div>
-              <div class="story-card-name">Sleepy Story</div>
-              <div class="story-card-dur">Calm &amp; relaxing</div>
-              <div class="story-card-desc">Gentle &amp; soothing</div>
+              <div class="story-card-name" data-i18n="card_sleepy_name">Sleepy Story</div>
+              <div class="story-card-dur" data-i18n="card_sleepy_dur">Calm &amp; relaxing</div>
+              <div class="story-card-desc" data-i18n="card_sleepy_desc">Gentle &amp; soothing</div>
               <button class="story-card-arrow" aria-hidden="true">&rarr;</button>
             </div>
 
             <!-- Custom Story (My Idea) -->
             <div class="story-card card-teal" onclick="openCreatePage('medium')">
               <div class="story-card-art">&#129718;</div>
-              <div class="story-card-name">Custom Story</div>
-              <div class="story-card-dur">Your idea</div>
-              <div class="story-card-desc">Tell us what you want</div>
-              <span class="story-card-new">New</span>
+              <div class="story-card-name" data-i18n="card_custom_name">Custom Story</div>
+              <div class="story-card-dur" data-i18n="card_custom_dur">Your idea</div>
+              <div class="story-card-desc" data-i18n="card_custom_desc">Tell us what you want</div>
+              <span class="story-card-new" data-i18n="card_custom_new">New</span>
               <button class="story-card-arrow" aria-hidden="true">&rarr;</button>
             </div>
 
@@ -197,7 +197,7 @@
 
         <!-- ── CONTINUE YOUR LAST STORY ── -->
         <div id="continueSection" class="continue-section hidden">
-          <h2 class="section-title">Continue Your Last Story</h2>
+          <h2 class="section-title" data-i18n="continue_section_title">Continue Your Last Story</h2>
           <div class="continue-card" id="continueCard">
             <div class="continue-thumbs" id="continueThumbs"></div>
             <div class="continue-info">
