@@ -8744,6 +8744,12 @@ if (dialectAmericanBtn) {
 window.navigateTo = navigateTo;
 window.closeStoryCard = closeStoryCard;
 window.handleGenerate = handleGenerate;
+
+// Story card click handlers — attached via JS as well as onclick for reliability
+document.querySelector(".card-purple")?.addEventListener("click", () => handleGenerate("medium-surprise"));
+document.querySelector(".card-pink")?.addEventListener("click", () => handleGenerate("long-surprise"));
+document.querySelector(".card-blue")?.addEventListener("click", () => navigateTo("today"));
+document.querySelector(".card-teal")?.addEventListener("click", () => openCreatePage("medium"));
 window.signup = signup;
 window.login = login;
 window.logout = logout;
