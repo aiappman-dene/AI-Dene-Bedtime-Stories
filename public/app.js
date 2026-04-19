@@ -5180,6 +5180,14 @@ function selectChild(index) {
 }
 
 /**
+function buildPersonalWorld(child) {
+  const w = {};
+  if (child.pet) w.pet = child.pet;
+  if (child.bestFriend) w.bestFriend = child.bestFriend;
+  if (child.favToy) w.favToy = child.favToy;
+  return Object.keys(w).length ? w : undefined;
+}
+
  * Append gender and sibling context to the interests string so the AI
  * system prompt can personalise + age-match naturally. Kept within the
  * server's 200-char limit.
@@ -7258,7 +7266,46 @@ function updateHomeChildCard() {
   if (greetingEl) greetingEl.textContent = getTimeGreeting();
   if (heroTitleEl) heroTitleEl.textContent = t("hero_title", { name: child.name || "Your child" });
   if (avatarEl) avatarEl.textContent = (child.name || "?").charAt(0).toUpperCase();
+
+  // Swap hero image based on child gender
+  const heroImg = childCard && childCard.querySelector(".hero-img");
+  if (heroImg) {
+    const g = (child.gender || "").toLowerCase();
+    heroImg.src = g === "boy" ? "/images/boy-hero.png" : "/images/girl-hero.png";
+  }
+
   if (choicesEl) choicesEl.classList.remove("hidden");
+  updateContinueSection();
+}
+
+/** Populate the "Continue Your Last Story" strip on the home page. */
+function updateContinueSection() {
+  const section = $("continueSection");
+  const titleEl = $("continueTitle");
+  const metaEl = $("continueMeta");
+  const playBtn = $("continuePlayBtn");
+  if (!section) return;
+
+  if (cachedChildren.length === 0 || cachedLibrary.length === 0) {
+    section.classList.add("hidden");
+    return;
+  }
+
+  const child = cachedChildren[selectedChildIndex] || {};
+  const stories = cachedLibrary
+    .filter((s) => s && s.childName === child.name)
+    .sort((a, b) => String(b.savedAt || "").localeCompare(String(a.savedAt || "")));
+
+  if (stories.length === 0) {
+    section.classList.add("hidden");
+    return;
+  }
+
+  const last = stories[0];
+  if (titleEl) titleEl.textContent = last.title || "Untitled Story";
+  if (metaEl) metaEl.textContent = formatSavedDate(last.savedAt) || "Your last story";
+  if (playBtn) playBtn.onclick = () => reReadFromLibrary(last.id);
+  section.classList.remove("hidden");
 }
 
 /** Render the children list on the children page. */
@@ -7362,6 +7409,9 @@ function editChildByIndex(index) {
     : String(child.interests || "");
   const ap = $("childAppearance");
   if (ap) ap.value = child.appearance || "";
+  const petEl = $("childPet"); if (petEl) petEl.value = child.pet || "";
+  const bfEl = $("childBestFriend"); if (bfEl) bfEl.value = child.bestFriend || "";
+  const toyEl = $("childFavToy"); if (toyEl) toyEl.value = child.favToy || "";
   setEditMode(index);
   $("childFormCard")?.scrollIntoView({ behavior: "smooth", block: "center" });
 }
@@ -7602,6 +7652,9 @@ function clearChildForm() {
   $("childInterests").value = "";
   const ap = $("childAppearance");
   if (ap) ap.value = "";
+  const petEl = $("childPet"); if (petEl) petEl.value = "";
+  const bfEl = $("childBestFriend"); if (bfEl) bfEl.value = "";
+  const toyEl = $("childFavToy"); if (toyEl) toyEl.value = "";
 }
 
 function cancelEditChild() {
@@ -7628,6 +7681,9 @@ async function saveChild() {
     .map((i) => i.trim().toLowerCase())
     .filter(Boolean);
   const appearance = ($("childAppearance")?.value || "").trim().slice(0, 200);
+  const pet = ($("childPet")?.value || "").trim().slice(0, 60) || undefined;
+  const bestFriend = ($("childBestFriend")?.value || "").trim().slice(0, 60) || undefined;
+  const favToy = ($("childFavToy")?.value || "").trim().slice(0, 60) || undefined;
 
   if (!name) {
     alert(t("alert_save_child_name"));
@@ -7646,7 +7702,7 @@ async function saveChild() {
     return;
   }
 
-  const nextRecord = { name, age, gender, interests, appearance };
+  const nextRecord = { name, age, gender, interests, appearance, ...(pet && { pet }), ...(bestFriend && { bestFriend }), ...(favToy && { favToy }) };
 
   try {
     const userRef = doc(db, "users", currentUser.uid);
@@ -8041,6 +8097,7 @@ async function handleGenerate(mode) {
       dayBeats,
       dayMood: dayMood || undefined,
       appearance: child.appearance || undefined,
+      personalWorld: buildPersonalWorld(child),
     };
     buttonId = "generateTodayBtn";
   } else if (mode === "medium-surprise" || mode === "long-surprise") {
@@ -8070,6 +8127,7 @@ async function handleGenerate(mode) {
       language: getCurrentLanguage(), dialect: cachedDialect,
       appearance: child.appearance || undefined,
       globalInspiration: globalIdeas.length ? globalIdeas : undefined,
+      personalWorld: buildPersonalWorld(child),
     };
     buttonId = mode === "long-surprise" ? "surpriseLongBtn" : "surpriseMediumBtn";
   } else if (mode === "create") {
@@ -8103,6 +8161,7 @@ async function handleGenerate(mode) {
       customIdea: rawIdea,
       seriesContext: seriesContext || undefined,
       appearance: child.appearance || undefined,
+      personalWorld: buildPersonalWorld(child),
     };
     buttonId = "generateCreateBtn";
   } else {

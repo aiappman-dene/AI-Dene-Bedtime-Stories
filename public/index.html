@@ -11,26 +11,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Lexend:wght@400;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/style.css?v=20260408c" />
+  <link rel="stylesheet" href="/style.css?v=20260419a" />
 </head>
 <body>
   <div class="app-shell">
-
-    <!-- Shooting stars -->
-    <span class="shooting-star" aria-hidden="true"></span>
-    <span class="shooting-star" aria-hidden="true"></span>
-    <span class="shooting-star" aria-hidden="true"></span>
-    <span class="shooting-star" aria-hidden="true"></span>
-    <span class="shooting-star" aria-hidden="true"></span>
-
-    <!-- Decorative moon -->
-    <div class="moon" aria-hidden="true">
-      <div class="moon-face">
-        <div class="moon-eye left"></div>
-        <div class="moon-eye right"></div>
-        <div class="moon-smile"></div>
-      </div>
-    </div>
 
     <!-- ================================================================== -->
     <!-- AUTH PAGE                                                           -->
@@ -101,18 +85,15 @@
         <div id="paywallCard" class="card paywall-card hidden">
           <h2 data-i18n="paywall_title">Your free trial has ended</h2>
           <p class="hint" data-i18n="paywall_hint">Continue creating personalised bedtime stories your child will love.</p>
-          <div class="paywall-price">
-            <span class="paywall-amount">£2.99</span>
-            <span class="paywall-period">/month</span>
-          </div>
+          <div class="paywall-price"><span class="paywall-amount">&pound;2.99</span><span class="paywall-period">/month</span></div>
           <ul class="paywall-perks">
             <li data-i18n="paywall_perk1">10 magical stories every week</li>
             <li data-i18n="paywall_perk2">Story From Today, Medium &amp; Long stories</li>
             <li data-i18n="paywall_perk3">Full Story Library &amp; series continuity</li>
             <li data-i18n="paywall_perk4">12 languages &bull; Safe &bull; No ads</li>
           </ul>
-          <button id="subscribeBtn" class="btn primary btn-lg" data-i18n="subscribe_btn">Start Subscribing — £2.99/month</button>
-          <p class="hint paywall-note" data-i18n="paywall_note">Your saved stories stay yours — readable anytime.</p>
+          <button id="subscribeBtn" class="btn primary btn-lg" data-i18n="subscribe_btn">Start Subscribing &mdash; &pound;2.99/month</button>
+          <p class="hint paywall-note" data-i18n="paywall_note">Your saved stories stay yours &mdash; readable anytime.</p>
         </div>
 
         <!-- Welcome banner (first-time / no children) -->
@@ -122,127 +103,35 @@
           <button type="button" class="btn primary" onclick="navigateTo('children')" data-i18n="add_first_child">Add Your First Child</button>
         </div>
 
-        <!-- ── HERO SECTION ── -->
+        <!-- ── APP HEADER (inside hero area) ── -->
         <div id="activeChildCard" class="home-hero hidden">
-          <div class="home-hero-glow"></div>
 
-          <!-- Hero illustration image -->
-          <img src="/hero.png" class="hero-img" alt="" aria-hidden="true" />
+          <!-- Full-bleed hero image -->
+          <img src="/images/girl-hero.png" class="hero-img" alt="" aria-hidden="true" />
 
-          <!-- Illustrated child reading — right side (SVG fallback hidden when image loads) -->
-          <div class="hero-illustration hero-illustration-fallback" aria-hidden="true" style="display:none">
-            <svg viewBox="0 0 170 250" xmlns="http://www.w3.org/2000/svg" class="hero-child-svg">
-              <defs>
-                <radialGradient id="hBookAmb" cx="50%" cy="58%" r="52%">
-                  <stop offset="0%" stop-color="#ffcc40" stop-opacity="0.5"/>
-                  <stop offset="55%" stop-color="#ff8020" stop-opacity="0.15"/>
-                  <stop offset="100%" stop-color="#7b20ff" stop-opacity="0"/>
-                </radialGradient>
-                <radialGradient id="hPageL" cx="72%" cy="48%" r="62%">
-                  <stop offset="0%" stop-color="#fff8dc"/>
-                  <stop offset="100%" stop-color="#ffd060"/>
-                </radialGradient>
-                <radialGradient id="hPageR" cx="28%" cy="48%" r="62%">
-                  <stop offset="0%" stop-color="#fff3c0"/>
-                  <stop offset="100%" stop-color="#ffb820"/>
-                </radialGradient>
-                <filter id="hGlow" x="-50%" y="-50%" width="200%" height="200%">
-                  <feGaussianBlur stdDeviation="2.5" result="b"/>
-                  <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-                </filter>
-              </defs>
+          <!-- Dark gradient overlay left→transparent -->
+          <div class="hero-overlay"></div>
 
-              <!-- Curtain left -->
-              <path d="M0 0 Q18 60 8 130 Q4 180 12 250 L0 250 Z" fill="rgba(60,20,120,0.55)"/>
-              <!-- Curtain right -->
-              <path d="M170 0 Q152 60 162 130 Q166 180 158 250 L170 250 Z" fill="rgba(60,20,120,0.55)"/>
+          <!-- Pink glow on right -->
+          <div class="hero-glow-right"></div>
 
-              <!-- Ambient warm glow from book -->
-              <ellipse cx="85" cy="168" rx="78" ry="58" fill="url(#hBookAmb)" class="hglow-pulse"/>
-
-              <!-- Blanket -->
-              <path d="M15 225 Q85 208 155 225 Q155 255 85 255 Q15 255 15 225 Z" fill="rgba(70,25,140,0.6)"/>
-              <path d="M10 228 Q85 212 160 228" stroke="rgba(140,100,255,0.35)" stroke-width="2" fill="none"/>
-
-              <!-- Body / lying down torso -->
-              <ellipse cx="90" cy="210" rx="38" ry="14" fill="#c07858" opacity="0.55"/>
-
-              <!-- Arm reaching to book -->
-              <path d="M58 205 Q68 195 84 188" stroke="#c07858" stroke-width="9" stroke-linecap="round" fill="none"/>
-
-              <!-- Open book — left page -->
-              <path d="M38 162 Q62 146 86 155 L86 188 Q62 183 38 198 Z" fill="url(#hPageL)" filter="url(#hGlow)"/>
-              <!-- Open book — right page -->
-              <path d="M134 162 Q110 146 86 155 L86 188 Q110 183 134 198 Z" fill="url(#hPageR)" filter="url(#hGlow)"/>
-              <!-- Spine -->
-              <line x1="86" y1="155" x2="86" y2="188" stroke="#cc8820" stroke-width="1.5" opacity="0.8"/>
-              <!-- Text lines on pages -->
-              <line x1="48" y1="167" x2="76" y2="161" stroke="rgba(100,65,15,0.22)" stroke-width="1.2"/>
-              <line x1="48" y1="174" x2="76" y2="169" stroke="rgba(100,65,15,0.22)" stroke-width="1.2"/>
-              <line x1="48" y1="181" x2="76" y2="177" stroke="rgba(100,65,15,0.22)" stroke-width="1.2"/>
-              <line x1="96" y1="161" x2="124" y2="167" stroke="rgba(100,65,15,0.22)" stroke-width="1.2"/>
-              <line x1="96" y1="169" x2="124" y2="174" stroke="rgba(100,65,15,0.22)" stroke-width="1.2"/>
-              <line x1="96" y1="177" x2="124" y2="181" stroke="rgba(100,65,15,0.22)" stroke-width="1.2"/>
-
-              <!-- Child head -->
-              <circle cx="72" cy="138" r="26" fill="#d49268"/>
-              <!-- Ear -->
-              <ellipse cx="48" cy="140" rx="5" ry="7" fill="#c27a55"/>
-
-              <!-- Hair — dark, swept up into bun -->
-              <path d="M47 124 Q62 100 92 110 Q96 124 86 130 Q74 118 50 126 Z" fill="#2a1510"/>
-              <path d="M72 106 Q82 100 92 108" stroke="#3d2015" stroke-width="3" fill="none" stroke-linecap="round"/>
-              <!-- Hair bun -->
-              <circle cx="90" cy="112" r="11" fill="#2a1510"/>
-              <circle cx="90" cy="112" r="7" fill="#341a12"/>
-              <!-- Star hair clip -->
-              <polygon points="90,104 91.5,108 95.5,108 92.5,110.5 93.5,114.5 90,112 86.5,114.5 87.5,110.5 84.5,108 88.5,108" fill="#ffd060" opacity="0.9"/>
-
-              <!-- Eye looking down -->
-              <ellipse cx="74" cy="140" rx="3.5" ry="2.8" fill="#2a1508"/>
-              <circle cx="74.5" cy="139.5" r="1" fill="rgba(255,255,255,0.45)"/>
-              <!-- Eyelashes -->
-              <path d="M68 137 Q71.5 133 78 137" stroke="#2a1508" stroke-width="1.8" fill="none" stroke-linecap="round"/>
-              <!-- Nose -->
-              <path d="M69 146 Q72 150 77 147" stroke="#b56840" stroke-width="1.2" fill="none"/>
-              <!-- Cheek blush -->
-              <ellipse cx="83" cy="148" rx="7" ry="4" fill="#ff9070" opacity="0.25"/>
-              <!-- Smile -->
-              <path d="M68 152 Q72 156 78 153" stroke="#9a5030" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-
-              <!-- Teddy bear (small, right side) -->
-              <circle cx="140" cy="200" r="14" fill="rgba(180,120,60,0.65)"/>
-              <circle cx="130" cy="190" r="8" fill="rgba(180,120,60,0.65)"/>
-              <circle cx="150" cy="190" r="8" fill="rgba(180,120,60,0.65)"/>
-              <circle cx="130" cy="190" r="5" fill="rgba(160,100,45,0.65)"/>
-              <circle cx="150" cy="190" r="5" fill="rgba(160,100,45,0.65)"/>
-              <circle cx="140" cy="202" r="6" fill="rgba(160,100,45,0.65)"/>
-              <circle cx="137" cy="198" r="1.5" fill="rgba(80,40,10,0.6)"/>
-              <circle cx="143" cy="198" r="1.5" fill="rgba(80,40,10,0.6)"/>
-              <path d="M137 203 Q140 206 143 203" stroke="rgba(80,40,10,0.5)" stroke-width="1.2" fill="none"/>
-
-              <!-- Sparkles from book -->
-              <g class="hero-sparks">
-                <text x="118" y="122" font-size="14" fill="#ffd060" opacity="0.95">✨</text>
-                <text x="28" y="132" font-size="10" fill="#ffd060" opacity="0.7">✦</text>
-                <text x="142" y="148" font-size="11" fill="#fff" opacity="0.8">★</text>
-                <text x="20" y="158" font-size="8" fill="#ffaa30" opacity="0.6">✦</text>
-                <text x="136" y="172" font-size="10" fill="#ffd060" opacity="0.8">✨</text>
-                <text x="30" y="175" font-size="8" fill="#fff" opacity="0.5">★</text>
-              </g>
-
-              <!-- Top stars -->
-              <text x="148" y="38" font-size="13" fill="#ffd060" opacity="0.55">★</text>
-              <text x="12" y="48" font-size="9" fill="#fff" opacity="0.45">✦</text>
-              <text x="130" y="68" font-size="10" fill="#ffd060" opacity="0.6">✨</text>
-              <text x="8" y="82" font-size="8" fill="#ffd060" opacity="0.4">★</text>
-              <text x="155" y="90" font-size="8" fill="#fff" opacity="0.5">✦</text>
-            </svg>
+          <!-- App brand row (top of hero) -->
+          <div class="app-header">
+            <div class="app-brand">
+              <span class="app-brand-icon">&#128218;&#10024;</span>
+              <div>
+                <span class="app-brand-name">DreamTalez</span>
+                <span class="app-brand-tag">Every night, a new magical adventure starring your child &#10024;</span>
+              </div>
+            </div>
+            <button class="premium-badge" onclick="navigateTo('settings')">&#128081; Premium &ndash; Unlock All</button>
           </div>
 
+          <!-- Hero text content -->
           <div class="home-hero-content">
-            <p id="homeGreeting" class="home-greeting"></p>
+            <p id="homeGreeting" class="home-greeting-pill"></p>
             <h1 id="heroTitle" class="home-hero-title"></h1>
+            <p class="hero-sub">Create a beautiful bedtime story in seconds</p>
 
             <div class="home-profile">
               <div id="homeAvatar" class="home-avatar"></div>
@@ -256,60 +145,66 @@
             <p id="streakDisplay" class="streak-display hidden"></p>
             <p id="trialBanner" class="trial-banner hidden"></p>
 
-            <button type="button" class="btn-cta" onclick="navigateTo('today')" data-i18n="cta_create">&#10024; Create New Story</button>
+            <button type="button" class="btn-cta" onclick="navigateTo('today')" data-i18n="cta_create">&#11088; Create New Story</button>
+          </div>
+
+        </div>
+
+        <!-- ── STORY CARDS ── -->
+        <div id="storyChoices" class="story-section hidden">
+          <h2 class="section-title">&#10024; &mdash; Choose a Story &mdash;</h2>
+          <div class="story-cards-grid">
+
+            <!-- Quick Dream (Medium Surprise) -->
+            <div class="story-card card-purple" onclick="handleGenerate('medium-surprise')">
+              <div class="story-card-art">&#127769;</div>
+              <div class="story-card-name">Quick Dream</div>
+              <div class="story-card-dur">5&ndash;7 min</div>
+              <div class="story-card-desc">A short, sweet story</div>
+              <button class="story-card-arrow" aria-hidden="true">&rarr;</button>
+            </div>
+
+            <!-- Magic Adventure (Long Surprise) -->
+            <div class="story-card card-pink" onclick="handleGenerate('long-surprise')">
+              <div class="story-card-art">&#11088;</div>
+              <div class="story-card-name">Magic Adventure</div>
+              <div class="story-card-dur">10+ min</div>
+              <div class="story-card-desc">A full magical journey</div>
+              <button class="story-card-arrow" aria-hidden="true">&rarr;</button>
+            </div>
+
+            <!-- Sleepy Story (Story From Today) -->
+            <div class="story-card card-blue" onclick="navigateTo('today')">
+              <div class="story-card-art">&#128164;</div>
+              <div class="story-card-name">Sleepy Story</div>
+              <div class="story-card-dur">Calm &amp; relaxing</div>
+              <div class="story-card-desc">Gentle &amp; soothing</div>
+              <button class="story-card-arrow" aria-hidden="true">&rarr;</button>
+            </div>
+
+            <!-- Custom Story (My Idea) -->
+            <div class="story-card card-teal" onclick="openCreatePage('medium')">
+              <div class="story-card-art">&#129718;</div>
+              <div class="story-card-name">Custom Story</div>
+              <div class="story-card-dur">Your idea</div>
+              <div class="story-card-desc">Tell us what you want</div>
+              <span class="story-card-new">New</span>
+              <button class="story-card-arrow" aria-hidden="true">&rarr;</button>
+            </div>
+
           </div>
         </div>
 
-        <!-- ── STORY GRID ── -->
-        <div id="storyChoices" class="story-grid-section hidden">
-          <h2 class="story-grid-heading" data-i18n="choose_story">Choose your story</h2>
-          <div class="story-grid">
-
-            <!-- Story From Today -->
-            <button type="button" class="grid-card grid-card-today" onclick="navigateTo('today')">
-              <div class="grid-icon-wrap">&#9733;</div>
-              <div class="grid-card-body">
-                <h3 data-i18n="story_today_title">Story From Today</h3>
-                <p data-i18n="story_today_desc">Turn your child's real day into a calming bedtime story</p>
-              </div>
-              <span class="grid-badge" data-i18n="story_today_badge">Daily habit</span>
-            </button>
-
-            <!-- Medium Story -->
-            <div class="grid-card grid-card-standard">
-              <div class="grid-icon-wrap">&#128218;</div>
-              <div class="grid-card-body">
-                <h3 data-i18n="medium_story">Medium Story</h3>
-                <p data-i18n="medium_story_desc">A 6–7 min personalised bedtime story</p>
-              </div>
-              <div class="grid-btns">
-                <button type="button" id="surpriseMediumBtn" class="btn ghost choice-hub-btn" onclick="handleGenerate('medium-surprise')" data-i18n="surprise_me">&#127922; Surprise Me</button>
-                <button type="button" class="btn ghost choice-hub-btn" onclick="openCreatePage('medium')" data-i18n="my_idea">&#9999;&#65039; My Idea</button>
-              </div>
+        <!-- ── CONTINUE YOUR LAST STORY ── -->
+        <div id="continueSection" class="continue-section hidden">
+          <h2 class="section-title">Continue Your Last Story</h2>
+          <div class="continue-card" id="continueCard">
+            <div class="continue-thumbs" id="continueThumbs"></div>
+            <div class="continue-info">
+              <strong id="continueTitle">Loading&hellip;</strong>
+              <p id="continueMeta">Your last story</p>
             </div>
-
-            <!-- Long Story -->
-            <div class="grid-card grid-card-standard">
-              <div class="grid-icon-wrap">&#128218;</div>
-              <div class="grid-card-body">
-                <h3 data-i18n="long_story">Long Story</h3>
-                <p data-i18n="long_story_desc">A longer adventure (~10 min) for your child</p>
-              </div>
-              <div class="grid-btns">
-                <button type="button" id="surpriseLongBtn" class="btn ghost choice-hub-btn" onclick="handleGenerate('long-surprise')" data-i18n="surprise_me">&#127922; Surprise Me</button>
-                <button type="button" class="btn ghost choice-hub-btn" onclick="openCreatePage('long')" data-i18n="my_idea">&#9999;&#65039; My Idea</button>
-              </div>
-            </div>
-
-            <!-- My Idea -->
-            <button type="button" class="grid-card grid-card-idea" onclick="openCreatePage('medium')">
-              <div class="grid-icon-wrap">&#9999;&#65039;</div>
-              <div class="grid-card-body">
-                <h3 data-i18n="my_idea_card">My Idea</h3>
-                <p data-i18n="my_idea_card_desc">Tell us what tonight's story should be about</p>
-              </div>
-            </button>
-
+            <button class="continue-play" id="continuePlayBtn" aria-label="Play story">&#9654;</button>
           </div>
         </div>
 
@@ -345,6 +240,9 @@
           </select>
           <input id="childInterests" type="text" placeholder="Interests (e.g. dinosaurs, fairies, space)" data-i18n-ph="interests_placeholder" maxlength="200" />
           <input id="childAppearance" type="text" placeholder="Appearance (e.g. long dark hair like Jasmine, green eyes)" data-i18n-ph="appearance_placeholder" maxlength="200" />
+          <input id="childPet" type="text" placeholder="Pet name (optional, e.g. Biscuit the cat)" maxlength="60" />
+          <input id="childBestFriend" type="text" placeholder="Best friend's name (optional, e.g. Zara)" maxlength="60" />
+          <input id="childFavToy" type="text" placeholder="Favourite toy or object (optional, e.g. Teddy)" maxlength="60" />
           <button type="button" id="saveChildBtn" class="btn primary" onclick="saveChild()" data-i18n="save_child">Save Child</button>
           <button type="button" id="cancelEditBtn" class="btn ghost btn-sm hidden" onclick="cancelEditChild()" data-i18n="cancel">Cancel</button>
         </div>
@@ -664,9 +562,17 @@
         <span class="nav-label" data-i18n="library_nav">Library</span>
       </button>
       <button type="button" class="nav-create" aria-label="Create story" onclick="navigateTo('today')">+</button>
+      <button type="button" class="nav-item nav-item-fav" data-page="library" onclick="navigateTo('library')">
+        <span class="nav-icon">&#10084;</span>
+        <span class="nav-label">Favourites</span>
+      </button>
+      <button type="button" class="nav-item" data-page="children" onclick="navigateTo('children')">
+        <span class="nav-icon">&#128100;</span>
+        <span class="nav-label">My Child</span>
+      </button>
       <button type="button" class="nav-item" data-page="settings" onclick="navigateTo('settings')">
         <span class="nav-icon">&#9881;</span>
-        <span class="nav-label" data-i18n="settings_nav">Settings</span>
+        <span class="nav-label">Account</span>
       </button>
     </nav>
 

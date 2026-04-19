@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>DreamTalez Icon Generator</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0d1b2e; color: #e8eaf6; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; padding: 2rem; }
+  h1 { font-size: 1.6rem; margin-bottom: 0.25rem; color: #fff; }
+  .subtitle { color: #8899bb; margin-bottom: 2rem; font-size: 0.9rem; }
+  .section { margin-bottom: 2.5rem; }
+  h2 { font-size: 1.1rem; color: #c5cff7; margin-bottom: 1rem; border-bottom: 1px solid #1e3050; padding-bottom: 0.5rem; }
+  .previews { display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: flex-end; margin-bottom: 1rem; }
+  .preview-item { text-align: center; }
+  .preview-label { font-size: 0.75rem; color: #8899bb; margin-top: 0.5rem; }
+  canvas { display: block; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+  .btn { display: inline-block; background: #2a6fdb; color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 8px; cursor: pointer; font-size: 0.9rem; margin: 0.25rem; }
+  .btn:hover { background: #1a5fcc; }
+  .btn.green { background: #2a8a4a; }
+  .btn.green:hover { background: #1a7a3a; }
+  .btn-row { margin-top: 0.5rem; }
+  .instructions { background: #111e33; border: 1px solid #1e3050; border-radius: 10px; padding: 1.2rem 1.5rem; margin-top: 1rem; font-size: 0.85rem; line-height: 1.8; color: #c0cce8; }
+  .instructions code { background: #0b1626; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.8rem; color: #7eb6ff; }
+  .instructions ol { margin-left: 1.2rem; }
+  .badge { display: inline-block; background: #1e3a6e; color: #7eb6ff; font-size: 0.7rem; padding: 0.1rem 0.5rem; border-radius: 4px; margin-left: 0.4rem; vertical-align: middle; }
+</style>
+</head>
+<body>
+
+<h1>DreamTalez — Icon Generator</h1>
+<p class="subtitle">Open in Chrome. Everything is drawn from code — no files needed. Click any green button to download.</p>
+
+<!-- PLAY STORE ICON -->
+<div class="section">
+  <h2>Play Store Icon <span class="badge">512×512 required</span></h2>
+  <div class="previews">
+    <div class="preview-item">
+      <canvas id="icon512" width="512" height="512" style="width:180px;height:180px;"></canvas>
+      <div class="preview-label">Full size preview</div>
+    </div>
+    <div class="preview-item">
+      <canvas id="prev96" width="96" height="96" style="width:96px;height:96px;"></canvas>
+      <div class="preview-label">96px preview</div>
+    </div>
+    <div class="preview-item">
+      <canvas id="prev48" width="48" height="48" style="width:48px;height:48px;"></canvas>
+      <div class="preview-label">48px preview</div>
+    </div>
+  </div>
+  <div class="btn-row">
+    <button class="btn green" onclick="dl('icon512','dreamtalez-icon-512.png')">⬇ Download 512×512 (Play Store)</button>
+  </div>
+</div>
+
+<!-- FEATURE GRAPHIC -->
+<div class="section">
+  <h2>Feature Graphic <span class="badge">1024×500 required</span></h2>
+  <canvas id="feature" width="1024" height="500" style="width:100%;max-width:700px;border-radius:8px;"></canvas>
+  <div class="btn-row">
+    <button class="btn green" onclick="dl('feature','dreamtalez-feature-graphic.png')">⬇ Download Feature Graphic</button>
+  </div>
+</div>
+
+<!-- ANDROID ICONS -->
+<div class="section">
+  <h2>Android Launcher Icons <span class="badge">Replace default Capacitor icons</span></h2>
+  <div class="previews">
+    <div class="preview-item">
+      <canvas id="m48" width="48" height="48" style="width:48px;height:48px;"></canvas>
+      <div class="preview-label">mdpi 48px</div>
+    </div>
+    <div class="preview-item">
+      <canvas id="m72" width="72" height="72" style="width:72px;height:72px;"></canvas>
+      <div class="preview-label">hdpi 72px</div>
+    </div>
+    <div class="preview-item">
+      <canvas id="m96" width="96" height="96" style="width:96px;height:96px;"></canvas>
+      <div class="preview-label">xhdpi 96px</div>
+    </div>
+    <div class="preview-item">
+      <canvas id="m144" width="144" height="144" style="width:96px;height:96px;"></canvas>
+      <div class="preview-label">xxhdpi 144px</div>
+    </div>
+    <div class="preview-item">
+      <canvas id="m192" width="192" height="192" style="width:96px;height:96px;"></canvas>
+      <div class="preview-label">xxxhdpi 192px</div>
+    </div>
+  </div>
+  <div class="btn-row">
+    <button class="btn" onclick="dl('m48','ic_launcher_mdpi.png')">⬇ mdpi</button>
+    <button class="btn" onclick="dl('m72','ic_launcher_hdpi.png')">⬇ hdpi</button>
+    <button class="btn" onclick="dl('m96','ic_launcher_xhdpi.png')">⬇ xhdpi</button>
+    <button class="btn" onclick="dl('m144','ic_launcher_xxhdpi.png')">⬇ xxhdpi</button>
+    <button class="btn" onclick="dl('m192','ic_launcher_xxxhdpi.png')">⬇ xxxhdpi</button>
+    <button class="btn green" onclick="dlAll()">⬇ Download All 5 Android Icons</button>
+  </div>
+  <div class="instructions">
+    <strong>After downloading, replace these files:</strong>
+    <ol>
+      <li><code>android/app/src/main/res/mipmap-mdpi/ic_launcher.png</code> and <code>ic_launcher_round.png</code></li>
+      <li><code>android/app/src/main/res/mipmap-hdpi/ic_launcher.png</code> and <code>ic_launcher_round.png</code></li>
+      <li><code>android/app/src/main/res/mipmap-xhdpi/ic_launcher.png</code> and <code>ic_launcher_round.png</code></li>
+      <li><code>android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png</code> and <code>ic_launcher_round.png</code></li>
+      <li><code>android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png</code> and <code>ic_launcher_round.png</code></li>
+      <li>Then rebuild: run <code>gradlew.bat bundleRelease</code> in the android folder</li>
+    </ol>
+  </div>
+</div>
+
+<script>
+// ================================================================
+// DRAWING UTILITIES
+// ================================================================
+
+function drawBackground(ctx, W, H) {
+  const g = ctx.createLinearGradient(0, 0, W * 0.5, H);
+  g.addColorStop(0, '#090f1e');
+  g.addColorStop(1, '#0d2240');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+}
+
+const STARS = [
+  [0.08,0.10,0.013,0.90],[0.20,0.06,0.009,0.70],[0.75,0.08,0.011,0.85],
+  [0.88,0.15,0.008,0.65],[0.92,0.35,0.013,0.90],[0.05,0.45,0.009,0.70],
+  [0.14,0.75,0.011,0.80],[0.86,0.70,0.009,0.65],[0.10,0.88,0.013,0.90],
+  [0.90,0.86,0.010,0.75],[0.50,0.04,0.009,0.80],[0.34,0.93,0.010,0.60],
+  [0.66,0.94,0.008,0.70],[0.96,0.55,0.007,0.55],[0.02,0.62,0.007,0.65],
+  [0.40,0.07,0.006,0.50],[0.60,0.06,0.007,0.60],[0.78,0.94,0.008,0.55],
+];
+
+function draw4Star(ctx, cx, cy, r) {
+  const inner = r * 0.38;
+  ctx.beginPath();
+  for (let i = 0; i < 8; i++) {
+    const a = (i * Math.PI / 4) - Math.PI / 2;
+    const radius = i % 2 === 0 ? r : inner;
+    const x = cx + radius * Math.cos(a);
+    const y = cy + radius * Math.sin(a);
+    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+}
+
+function drawStars(ctx, W, H) {
+  STARS.forEach(([xr, yr, rr, op]) => {
+    const r = rr * Math.min(W, H);
+    if (r < 0.8) return;
+    draw4Star(ctx, xr * W, yr * H, r);
+    ctx.fillStyle = `rgba(255,252,200,${op})`;
+    ctx.fill();
+  });
+  [[0.30,0.12,0.7],[0.45,0.08,0.5],[0.62,0.11,0.8],[0.25,0.85,0.5],
+   [0.55,0.91,0.6],[0.80,0.91,0.7],[0.03,0.28,0.6]].forEach(([xr,yr,op]) => {
+    ctx.beginPath();
+    ctx.arc(xr*W, yr*H, Math.max(0.6, 0.003*Math.min(W,H)), 0, Math.PI*2);
+    ctx.fillStyle = `rgba(255,252,200,${op})`;
+    ctx.fill();
+  });
+}
+
+function drawCrescent(ctx, cx, cy, R) {
+  // Soft glow behind moon
+  const glow = ctx.createRadialGradient(cx, cy, R*0.3, cx, cy, R*1.6);
+  glow.addColorStop(0, 'rgba(245,215,100,0.22)');
+  glow.addColorStop(1, 'rgba(245,215,100,0)');
+  ctx.beginPath();
+  ctx.arc(cx, cy, R*1.6, 0, Math.PI*2);
+  ctx.fillStyle = glow;
+  ctx.fill();
+
+  // Crescent: full circle then clip out offset circle
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, 0, Math.PI*2);
+  ctx.clip();
+
+  const mg = ctx.createRadialGradient(cx-R*0.2, cy-R*0.2, R*0.05, cx, cy, R);
+  mg.addColorStop(0, '#fff8d0');
+  mg.addColorStop(0.5, '#f8d96a');
+  mg.addColorStop(1,  '#d4a017');
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, 0, Math.PI*2);
+  ctx.fillStyle = mg;
+  ctx.fill();
+
+  // Cut-out circle to form crescent
+  ctx.beginPath();
+  ctx.arc(cx + R*0.42, cy - R*0.18, R*0.78, 0, Math.PI*2);
+  ctx.fillStyle = '#090f1e';
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawHouseScene(ctx, W, H) {
+  const s = Math.min(W, H);
+
+  // Crescent moon top-right
+  drawCrescent(ctx, W*0.72, H*0.20, s*0.10);
+
+  // Rolling hills / ground
+  const groundY = H * 0.72;
+  const hillGrad = ctx.createLinearGradient(0, groundY - s*0.06, 0, H);
+  hillGrad.addColorStop(0, '#0f2e4a');
+  hillGrad.addColorStop(1, '#071524');
+  ctx.beginPath();
+  ctx.moveTo(0, H);
+  ctx.lineTo(0, groundY + s*0.04);
+  ctx.quadraticCurveTo(W*0.25, groundY - s*0.06, W*0.5, groundY);
+  ctx.quadraticCurveTo(W*0.75, groundY + s*0.05, W, groundY - s*0.02);
+  ctx.lineTo(W, H);
+  ctx.closePath();
+  ctx.fillStyle = hillGrad;
+  ctx.fill();
+
+  // Trees (left and right)
+  function drawTree(tx, ty, tH) {
+    // Trunk
+    ctx.fillStyle = '#1a3a4a';
+    ctx.fillRect(tx - s*0.015, ty, s*0.03, tH*0.35);
+    // Canopy layers
+    [[0, 0, 1.0], [-tH*0.15, tH*0.28, 0.85], [-tH*0.28, tH*0.52, 0.65]].forEach(([yOff, yPos, scale]) => {
+      ctx.beginPath();
+      ctx.moveTo(tx, ty + yOff - tH*0.25);
+      ctx.lineTo(tx - tH*0.32*scale, ty + yPos);
+      ctx.lineTo(tx + tH*0.32*scale, ty + yPos);
+      ctx.closePath();
+      ctx.fillStyle = '#0d2e3a';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(100,180,200,0.15)';
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
+    });
+  }
+  drawTree(W*0.12, groundY - s*0.28, s*0.22);
+  drawTree(W*0.88, groundY - s*0.24, s*0.18);
+
+  // House body
+  const hW = s * 0.38;
+  const hH = s * 0.28;
+  const hX = (W - hW) / 2;
+  const hY = groundY - hH;
+
+  const wallGrad = ctx.createLinearGradient(hX, hY, hX + hW, hY + hH);
+  wallGrad.addColorStop(0, '#1e3d5c');
+  wallGrad.addColorStop(1, '#142d44');
+  ctx.fillStyle = wallGrad;
+  ctx.beginPath();
+  ctx.roundRect(hX, hY, hW, hH, s*0.012);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(100,160,220,0.18)';
+  ctx.lineWidth = s * 0.004;
+  ctx.stroke();
+
+  // Roof
+  const roofPeak = hY - hH * 0.52;
+  ctx.beginPath();
+  ctx.moveTo(hX - s*0.025, hY);
+  ctx.lineTo(W/2, roofPeak);
+  ctx.lineTo(hX + hW + s*0.025, hY);
+  ctx.closePath();
+  const roofGrad = ctx.createLinearGradient(W/2, roofPeak, W/2, hY);
+  roofGrad.addColorStop(0, '#1a4060');
+  roofGrad.addColorStop(1, '#0f2a40');
+  ctx.fillStyle = roofGrad;
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(100,160,220,0.2)';
+  ctx.lineWidth = s * 0.003;
+  ctx.stroke();
+
+  // Chimney
+  const chimX = hX + hW * 0.72;
+  const chimW = s * 0.04;
+  const chimH = s * 0.10;
+  ctx.fillStyle = '#0f2a40';
+  ctx.fillRect(chimX, roofPeak + (hY - roofPeak)*0.35, chimW, chimH);
+
+  // Glowing windows
+  function drawWindow(wx, wy, ww, wh) {
+    // Outer glow
+    const wg = ctx.createRadialGradient(wx+ww/2, wy+wh/2, 0, wx+ww/2, wy+wh/2, ww*2.2);
+    wg.addColorStop(0, 'rgba(255,210,80,0.35)');
+    wg.addColorStop(1, 'rgba(255,210,80,0)');
+    ctx.beginPath();
+    ctx.arc(wx+ww/2, wy+wh/2, ww*2.2, 0, Math.PI*2);
+    ctx.fillStyle = wg;
+    ctx.fill();
+    // Window pane
+    ctx.beginPath();
+    ctx.roundRect(wx, wy, ww, wh, s*0.008);
+    const pg = ctx.createLinearGradient(wx, wy, wx, wy+wh);
+    pg.addColorStop(0, '#ffe580');
+    pg.addColorStop(1, '#f5b820');
+    ctx.fillStyle = pg;
+    ctx.fill();
+    // Cross divider
+    ctx.strokeStyle = 'rgba(180,120,0,0.5)';
+    ctx.lineWidth = s*0.004;
+    ctx.beginPath();
+    ctx.moveTo(wx+ww/2, wy); ctx.lineTo(wx+ww/2, wy+wh);
+    ctx.moveTo(wx, wy+wh/2); ctx.lineTo(wx+ww, wy+wh/2);
+    ctx.stroke();
+  }
+
+  const winW = hW * 0.20;
+  const winH = hH * 0.28;
+  const winY = hY + hH * 0.28;
+  drawWindow(hX + hW*0.14, winY, winW, winH);
+  drawWindow(hX + hW*0.66, winY, winW, winH);
+
+  // Door
+  const dW = hW * 0.18;
+  const dH = hH * 0.42;
+  const dX = hX + (hW - dW)/2;
+  const dY = hY + hH - dH;
+  ctx.beginPath();
+  ctx.roundRect(dX, dY, dW, dH, [s*0.012, s*0.012, 0, 0]);
+  ctx.fillStyle = '#0a1f30';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(100,160,220,0.2)';
+  ctx.lineWidth = s*0.003;
+  ctx.stroke();
+  // Door knob
+  ctx.beginPath();
+  ctx.arc(dX + dW*0.72, dY + dH*0.55, s*0.008, 0, Math.PI*2);
+  ctx.fillStyle = '#f5d060';
+  ctx.fill();
+
+  // Zzz floating from chimney
+  ctx.save();
+  const zSizes = [s*0.058, s*0.046, s*0.036];
+  const zPositions = [[chimX+chimW*0.5, roofPeak+(hY-roofPeak)*0.18], [chimX+chimW*1.1, roofPeak+(hY-roofPeak)*0.0], [chimX+chimW*1.7, roofPeak+(hY-roofPeak)*(-0.15)]];
+  zSizes.forEach((sz, i) => {
+    ctx.font = `bold ${sz}px -apple-system, sans-serif`;
+    ctx.fillStyle = `rgba(245,220,120,${0.75 - i*0.18})`;
+    ctx.textAlign = 'center';
+    ctx.fillText('z', zPositions[i][0], zPositions[i][1]);
+  });
+  ctx.restore();
+
+  // Path/walkway
+  ctx.beginPath();
+  ctx.moveTo(W/2 - s*0.06, groundY);
+  ctx.lineTo(W/2 - s*0.03, hY + hH);
+  ctx.lineTo(W/2 + s*0.03, hY + hH);
+  ctx.lineTo(W/2 + s*0.06, groundY);
+  ctx.fillStyle = 'rgba(100,160,220,0.12)';
+  ctx.fill();
+}
+
+// ================================================================
+// RENDER FUNCTIONS
+// ================================================================
+
+function renderIcon(id, W, H) {
+  const c = document.getElementById(id);
+  if (!c) return;
+  c.width = W; c.height = H;
+  const ctx = c.getContext('2d');
+  drawBackground(ctx, W, H);
+  drawStars(ctx, W, H);
+  drawHouseScene(ctx, W, H);
+}
+
+function renderFeature() {
+  const c = document.getElementById('feature');
+  const W = 1024, H = 500;
+  const ctx = c.getContext('2d');
+
+  drawBackground(ctx, W, H);
+  drawStars(ctx, W, H);
+
+  // Draw house scene clipped to left half
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 0, 440, H);
+  ctx.clip();
+  drawHouseScene(ctx, 440, H);
+  ctx.restore();
+
+  // Soft fade divider between scene and text
+  const fade = ctx.createLinearGradient(360, 0, 480, 0);
+  fade.addColorStop(0, 'rgba(9,15,30,0)');
+  fade.addColorStop(1, 'rgba(9,15,30,0.92)');
+  ctx.fillStyle = fade;
+  ctx.fillRect(360, 0, 120, H);
+
+  // Text (right side)
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
+
+  // Title
+  ctx.font = 'bold 68px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+  ctx.fillStyle = '#ffffff';
+  ctx.shadowColor = 'rgba(245,215,80,0.4)';
+  ctx.shadowBlur = 18;
+  ctx.fillText('DreamTalez', 490, 200);
+  ctx.shadowBlur = 0;
+
+  // Tagline
+  ctx.font = '500 26px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+  ctx.fillStyle = 'rgba(248,228,140,0.92)';
+  ctx.fillText('Magical bedtime stories,', 490, 255);
+  ctx.fillText('made just for your child.', 490, 291);
+
+  // Divider
+  ctx.font = '18px sans-serif';
+  ctx.fillStyle = 'rgba(255,252,180,0.5)';
+  ctx.fillText('✦   ✦   ✦', 490, 344);
+
+  // Sub-line
+  ctx.font = '20px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+  ctx.fillStyle = 'rgba(180,205,255,0.70)';
+  ctx.fillText('Powered by AI  ·  12 Languages  ·  No Ads', 490, 396);
+}
+
+function renderPreviews() {
+  const src = document.getElementById('icon512');
+  ['prev96','prev48'].forEach(id => {
+    const c = document.getElementById(id);
+    const sz = id.includes('96') ? 96 : 48;
+    c.width = sz; c.height = sz;
+    c.getContext('2d').drawImage(src, 0, 0, sz, sz);
+  });
+}
+
+// ================================================================
+// DOWNLOAD HELPERS
+// ================================================================
+
+function dl(id, filename) {
+  const c = document.getElementById(id);
+  const a = document.createElement('a');
+  a.download = filename;
+  a.href = c.toDataURL('image/png');
+  a.click();
+}
+
+function dlAll() {
+  [['m48','ic_launcher_mdpi.png'],['m72','ic_launcher_hdpi.png'],
+   ['m96','ic_launcher_xhdpi.png'],['m144','ic_launcher_xxhdpi.png'],
+   ['m192','ic_launcher_xxxhdpi.png']].forEach(([id, name], i) => {
+    setTimeout(() => dl(id, name), i * 350);
+  });
+}
+
+// ================================================================
+// BOOT
+// ================================================================
+
+renderIcon('icon512', 512, 512);
+renderPreviews();
+renderFeature();
+renderIcon('m48',  48,  48);
+renderIcon('m72',  72,  72);
+renderIcon('m96',  96,  96);
+renderIcon('m144', 144, 144);
+renderIcon('m192', 192, 192);
+</script>
+</body>
+</html>

@@ -44,14 +44,26 @@ AI-Dene-Bedtime-Stories
 ## Setup
 1. Install dependencies: `npm install`
 2. Copy `.env.example` to `.env`
-3. Set `ANTHROPIC_API_KEY` in `.env`
+3. Set `ANTHROPIC_API_KEY` or `CLAUDE_API_KEY` in `.env`
 4. Optional: set `AI_PIPELINE_PROFILE=full` when you want the highest-quality multi-pass AI pipeline and have Anthropic credits available
 5. Start the server: `npm start`
 6. Open `http://localhost:3000`
 
+## VS Code + Auth Sync
+
+- Git credential storage is enabled globally with Git Credential Manager, so GitHub HTTPS auth can persist securely after you sign in once.
+- Firebase CLI auth persists on this machine after `firebase login`. You only need to repeat it if you log out.
+- In VS Code, use the bottom-left account menu to sign in so GitHub and extension auth are persisted in the editor profile.
+- Workspace defaults live in `.vscode/settings.json` and currently enable window restore plus Git autofetch.
+- `.vscode/tasks.json` gives you one-click `npm install`, `npm start`, `npm run dev`, and `npm run qa` tasks inside VS Code.
+- `.vscode/launch.json` gives you direct Run and Debug entries for the server, using `.env` automatically, plus a bootstrap profile that installs dependencies and starts watch mode from VS Code.
+- `.vscode/extensions.json` recommends the main GitHub/Copilot, Claude, dotenv, and PowerShell extensions for this repo.
+- For local API tools, put the same Claude secret in `.env` as either `ANTHROPIC_API_KEY` or `CLAUDE_API_KEY`.
+- If no Claude/Anthropic key is set yet, the server still boots and the app falls back to procedural story generation.
+
 ## Environment
 
-- `ANTHROPIC_API_KEY`: Required for AI story generation and AI polishing.
+- `ANTHROPIC_API_KEY`: Required for AI story generation and AI polishing. `CLAUDE_API_KEY` is accepted as an alias.
 - `PORT`: Local server port. Defaults to `3000`.
 - `NODE_ENV`: `development` or `production`.
 - `AI_PIPELINE_PROFILE`: `lean` for lower Anthropic usage, `full` for the full multi-pass pipeline.

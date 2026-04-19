@@ -55,7 +55,7 @@ const FIREBASE_PRIVATE_KEY = process.env.FIREBASE_PRIVATE_KEY
   ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n")
   : "";
 const GENERATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
-const GENERATE_LIMIT_MAX = Number(process.env.GENERATE_RATE_LIMIT_MAX || 12);
+const GENERATE_LIMIT_MAX = Number(process.env.GENERATE_RATE_LIMIT_MAX || 20);
 const POLISH_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 const POLISH_LIMIT_MAX = Number(process.env.POLISH_RATE_LIMIT_MAX || 20);
 const PUBLIC_DIR = path.join(process.cwd(), "public");
@@ -100,26 +100,26 @@ function getStoryTokenBudget(length, stage = "story", language = "en-GB") {
   // All other non-English languages get a moderate buffer.
   const lang = String(language || "en-GB").toLowerCase();
   const isEnglish = lang === "en-gb" || lang === "en-us" || lang === "british" || lang === "american";
-  const isAbjad  = lang === "ar" || lang === "hi" || lang === "ur";   // Arabic script / Devanagari
+  const isAbjad  = lang === "ar" || lang === "hi" || lang === "ur";
   const isCJK    = lang === "ja" || lang === "zh-cn";
   const multiplier = isAbjad ? 2.0 : isCJK ? 1.2 : isEnglish ? 1.0 : 1.4;
 
   if (normalizedLength === "short") {
     if (stage === "title") return 80;
-    if (stage === "delivery") return Math.ceil(1000 * multiplier);
-    return Math.ceil(1000 * multiplier);
+    if (stage === "delivery") return Math.ceil(1400 * multiplier);
+    return Math.ceil(1400 * multiplier);   // 300-500 words + generous internal reasoning room
   }
 
   if (normalizedLength === "long") {
     if (stage === "title") return 100;
-    if (stage === "delivery") return Math.ceil(3200 * multiplier);
-    return Math.ceil(3500 * multiplier);
+    if (stage === "delivery") return Math.ceil(4800 * multiplier);
+    return Math.ceil(5000 * multiplier);   // 1800-2400 words + full Pixar quality headroom
   }
 
   // medium (default)
   if (stage === "title") return 80;
-  if (stage === "delivery") return Math.ceil(2000 * multiplier);
-  return Math.ceil(2000 * multiplier);
+  if (stage === "delivery") return Math.ceil(2800 * multiplier);
+  return Math.ceil(3000 * multiplier);     // 900-1200 words + quality headroom
 }
 
 // =============================================================================
@@ -289,13 +289,15 @@ function getModelConfig({ mode, length } = {}) {
   }
 }
 
-async function callClaude({ system, prompt, maxTokens = 1200, temperature = 0.5, model }) {
+async function callClaude({ system, prompt, maxTokens = 1200, temperature = 0.5, model, timeoutMs }) {
   if (!AI_ENABLED) {
     throw new Error("AI provider is not configured.");
   }
 
+  // Scale timeout to token budget: long stories need 120s, short 60s
+  const resolvedTimeout = timeoutMs || (maxTokens >= 4000 ? 120000 : maxTokens >= 2500 ? 90000 : 60000);
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30000);
+  const timeout = setTimeout(() => controller.abort(), resolvedTimeout);
 
   try {
     // Build request body — system prompt is separate from messages
