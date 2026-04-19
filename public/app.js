@@ -8260,6 +8260,7 @@ async function handleGenerate(mode) {
   // Silently ignore if a generation is already running
   if (generationInProgress) return;
   generationInProgress = true;
+  _generationStartedAt = Date.now();
 
   // ---- Trial gate: block if trial exhausted (unless paid) ----
   if (!canGenerateStory()) {
@@ -8850,17 +8851,12 @@ if (settingsLangGrid) {
 // Idle / visibility recovery — prevents stuck loading state after phone sleep
 // =============================================================================
 
+// _generationStartedAt is set inside handleGenerate() at the moment generation begins.
 let _generationStartedAt = 0;
 
-const _origHandleGenerate = handleGenerate;
-// Wrap to track when generation began
-window.handleGenerate = async function (mode) {
-  _generationStartedAt = Date.now();
-  return _origHandleGenerate(mode);
-};
-
 // When the user returns to the app after a long absence (e.g. putting child to bed),
-// if the loading spinner is still showing and it's been over 2 minutes, reset cleanly.
+// if the loading spinner is still showing and it's been over 2 minutes, reset cleanly
+// and leave the user exactly where they were so they can simply tap again.
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) return;
   if (!generationInProgress) return;
@@ -8868,5 +8864,15 @@ document.addEventListener("visibilitychange", () => {
   if (elapsed > 120000) {
     generationInProgress = false;
     hideLoading();
+    // Small soft message so the parent knows what happened — no navigation
+    const toast = document.createElement("div");
+    toast.style.cssText =
+      "position:fixed;bottom:80px;left:50%;transform:translateX(-50%);" +
+      "background:rgba(30,20,60,0.95);color:#fff;border:1px solid rgba(123,97,255,0.4);" +
+      "border-radius:20px;padding:10px 20px;font-size:13px;font-weight:600;" +
+      "z-index:9999;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,0.4);";
+    toast.textContent = "Ready — tap a story to begin ✨";
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 4000);
   }
 });
