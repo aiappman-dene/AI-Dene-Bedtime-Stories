@@ -8322,9 +8322,12 @@ async function handleGenerate(mode) {
       ? child.interests.join(", ")
       : pick(interestsByAge[getAgeGroup(child.age || 5)]);
     const interests = enrichInterestsWithContext(baseInterests, child);
-
-    // Fetch global inspiration for this age group (non-blocking)
     const ageGroup = Math.round((parseInt(child.age) || 5) / 2) * 2;
+
+    // Show loading immediately so the user sees instant feedback
+    showLoading();
+
+    // Fetch global inspiration in background — won't block the spinner
     const globalIdeas = await getGlobalIdeaInspiration(ageGroup, getCurrentLanguage()).catch(() => []);
 
     payload = {
@@ -8382,11 +8385,19 @@ async function handleGenerate(mode) {
   const button = $(buttonId);
   const originalText = button?.textContent || "";
 
-  showLoading();
+  // Only call showLoading here if it wasn't already called above (medium/long-surprise call it early)
+  if (!document.getElementById("loadingOverlay") || document.getElementById("loadingOverlay").classList.contains("hidden")) {
+    showLoading();
+  }
   if (button) {
     button.disabled = true;
     button.textContent = "Creating...";
   }
+
+  // 90-second hard timeout — protects against the phone sleeping mid-generation
+  // and leaving the app stuck on the loading spinner forever.
+  const abortController = new AbortController();
+  const fetchTimeout = setTimeout(() => abortController.abort(), 90000);
 
   try {
     // All modes hit the AI pipeline when online.
@@ -8396,7 +8407,9 @@ async function handleGenerate(mode) {
       method: "POST",
       headers: await buildAuthenticatedJsonHeaders(),
       body: JSON.stringify(payload),
+      signal: abortController.signal,
     });
+    clearTimeout(fetchTimeout);
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -8468,6 +8481,16 @@ async function handleGenerate(mode) {
 
     enterReadingMode();
   } catch (error) {
+    clearTimeout(fetchTimeout);
+
+    // Fetch was aborted (90s timeout or phone slept) — reset cleanly, let user retry
+    if (error?.name === "AbortError") {
+      hideLoading();
+      if (button) { button.disabled = false; button.textContent = originalText; }
+      generationInProgress = false;
+      return;
+    }
+
     // Rate limit — show a clear message and stop (don't silently fall back)
     if (error?.rateLimited) {
       const banner = document.createElement("div");
@@ -8822,3 +8845,28 @@ if (settingsLangGrid) {
     if (status) status.textContent = `${t("lang_saved_status")} ${LANGUAGE_LABELS[langCode] || langCode}`;
   });
 }
+
+// =============================================================================
+// Idle / visibility recovery — prevents stuck loading state after phone sleep
+// =============================================================================
+
+let _generationStartedAt = 0;
+
+const _origHandleGenerate = handleGenerate;
+// Wrap to track when generation began
+window.handleGenerate = async function (mode) {
+  _generationStartedAt = Date.now();
+  return _origHandleGenerate(mode);
+};
+
+// When the user returns to the app after a long absence (e.g. putting child to bed),
+// if the loading spinner is still showing and it's been over 2 minutes, reset cleanly.
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) return;
+  if (!generationInProgress) return;
+  const elapsed = Date.now() - _generationStartedAt;
+  if (elapsed > 120000) {
+    generationInProgress = false;
+    hideLoading();
+  }
+});
