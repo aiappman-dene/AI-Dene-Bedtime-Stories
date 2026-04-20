@@ -8287,6 +8287,37 @@ let generationInProgress = false;
 // Expose to story-cache.js so background fill pauses during user generation
 window._dtGenerationInProgress = () => generationInProgress;
 
+// Client-side child safety pre-check (mirrors server list — catches issues
+// instantly without a network round-trip, shows a friendly message to the parent).
+const CLIENT_SAFETY_BANNED = [
+  "fuck","shit","bitch","bastard","asshole","cunt","dick","cock","pussy","piss",
+  "sex","porn","nude","naked","rape","molest","masturbat",
+  "kill","murder","gun","knife","stab","shoot","bomb","blood","gore","terror","suicide",
+  "drug","cocaine","heroin","meth","weed","alcohol","drunk",
+  "demon","satan","devil","horror","nightmare",
+];
+const CLIENT_SAFETY_RE = new RegExp(
+  CLIENT_SAFETY_BANNED.map(w => `\\b${w}`).join("|"), "i"
+);
+function isClientInputSafe(text) {
+  return !CLIENT_SAFETY_RE.test(text || "");
+}
+function showSafetyMessage() {
+  const existing = document.getElementById("_safetyToast");
+  if (existing) return;
+  const toast = document.createElement("div");
+  toast.id = "_safetyToast";
+  toast.style.cssText =
+    "position:fixed;bottom:80px;left:50%;transform:translateX(-50%);" +
+    "background:rgba(30,20,60,0.97);color:#fff;border:1px solid rgba(123,97,255,0.5);" +
+    "border-radius:20px;padding:12px 22px;font-size:14px;font-weight:600;" +
+    "z-index:9999;white-space:nowrap;box-shadow:0 4px 24px rgba(0,0,0,0.5);" +
+    "text-align:center;max-width:90vw;white-space:normal;";
+  toast.textContent = "Let's keep stories kind and magical ✨";
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 4000);
+}
+
 async function handleGenerate(mode) {
   const storyOutput = $("storyOutput");
   if (!storyOutput) return;
@@ -8320,6 +8351,12 @@ async function handleGenerate(mode) {
 
     if (!dayBeats) {
       alert(t("alert_add_beats"));
+      generationInProgress = false;
+      return;
+    }
+
+    if (!isClientInputSafe(dayBeats)) {
+      showSafetyMessage();
       generationInProgress = false;
       return;
     }
@@ -8395,6 +8432,12 @@ async function handleGenerate(mode) {
       generationInProgress = false;
       return;
     }
+
+    if (!isClientInputSafe(rawIdea)) {
+      showSafetyMessage();
+      generationInProgress = false;
+      return;
+    }
     const storyLength = $("createLength")?.value || "medium";
     const baseInterests = child.interests?.length
       ? child.interests.join(", ")
@@ -8452,6 +8495,14 @@ async function handleGenerate(mode) {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+      if (errorData?.unsafe) {
+        // Server-side safety block — show friendly message, no procedural fallback
+        hideLoading();
+        if (button) { button.disabled = false; button.textContent = originalText; }
+        generationInProgress = false;
+        showSafetyMessage();
+        return;
+      }
       if (response.status === 429) {
         const waitMins = Math.ceil((errorData.retryAfter || 300) / 60);
         throw Object.assign(

@@ -219,6 +219,38 @@ function containsSuspiciousContent(text) {
   return /https?:\/\/|<script|javascript:|on\w+\s*=|eval\s*\(|import\s*\(/.test(lower);
 }
 
+// Child-safety word list — checked on every user-supplied input field and
+// on every AI-generated story before it is sent to the client.
+const CHILD_SAFETY_BANNED = [
+  // profanity
+  "fuck","shit","bitch","bastard","asshole","cunt","dick","cock","pussy","piss","crap",
+  // sexual
+  "sex","porn","nude","naked","boob","breast","penis","vagina","rape","molest","masturbat",
+  // violence / weapons
+  "kill","murder","gun","knife","stab","shoot","bomb","blood","gore","terror","suicide",
+  // drugs / alcohol
+  "drug","cocaine","heroin","meth","weed","alcohol","drunk","cigarette","vape",
+  // horror / fear
+  "demon","satan","devil","hell","horror","nightmare",
+  // hate
+  "racist","nigger","faggot","retard",
+];
+
+const SAFETY_PATTERN = new RegExp(
+  CHILD_SAFETY_BANNED.map(w => `\\b${w}`).join("|"),
+  "i"
+);
+
+function isUnsafeForChildren(text) {
+  if (!text) return false;
+  return SAFETY_PATTERN.test(text);
+}
+
+function isStoryOutputSafe(story) {
+  if (!story) return false;
+  return !SAFETY_PATTERN.test(story);
+}
+
 function finalizeStoryLocally(storyText, dialect, label) {
   const normalized = normalizeStoryOutput(storyText);
 
@@ -609,33 +641,26 @@ app.post(
         : null;
       const cleanMood = dayMood ? sanitizeInput(dayMood) : null;
 
+      const SAFE_MSG = "Let's keep stories kind and magical ✨";
+
+      // XSS / injection check
       if (containsSuspiciousContent(cleanName) || containsSuspiciousContent(cleanInterests)) {
         logEvent(`Blocked suspicious input from ${req.ip}: ${cleanName}`);
         return res.status(400).json({ error: "Invalid input detected." });
       }
 
-      if (cleanIdea && containsSuspiciousContent(cleanIdea)) {
-        logEvent(`Blocked suspicious idea from ${req.ip}: ${cleanIdea}`);
-        return res.status(400).json({ error: "Invalid input detected." });
+      // Child-safety content check on all free-text user fields
+      const unsafeFields = [cleanIdea, cleanWish, cleanBeats, cleanAppearance, cleanMood]
+        .filter(Boolean)
+        .find(isUnsafeForChildren);
+
+      if (unsafeFields) {
+        logEvent(`Blocked unsafe content from ${req.ip}`);
+        return res.status(400).json({ error: SAFE_MSG, unsafe: true });
       }
 
       if (cleanSeriesContext && containsSuspiciousContent(cleanSeriesContext)) {
         logEvent(`Blocked suspicious series context from ${req.ip}`);
-        return res.status(400).json({ error: "Invalid input detected." });
-      }
-
-      if (cleanWish && containsSuspiciousContent(cleanWish)) {
-        logEvent(`Blocked suspicious wish from ${req.ip}: ${cleanWish}`);
-        return res.status(400).json({ error: "Invalid input detected." });
-      }
-
-      if (cleanAppearance && containsSuspiciousContent(cleanAppearance)) {
-        logEvent(`Blocked suspicious appearance from ${req.ip}: ${cleanAppearance}`);
-        return res.status(400).json({ error: "Invalid input detected." });
-      }
-
-      if (cleanBeats && containsSuspiciousContent(cleanBeats)) {
-        logEvent(`Blocked suspicious day-beats from ${req.ip}`);
         return res.status(400).json({ error: "Invalid input detected." });
       }
 
@@ -792,6 +817,13 @@ app.post(
 
       if (!cleanTitle) {
         cleanTitle = `${cleanName}'s Bedtime Story`;
+      }
+
+      // OUTPUT SAFETY CHECK — scan before sending to client
+      if (!isStoryOutputSafe(finalStory)) {
+        logEvent(`UNSAFE output detected for "${cleanName}" — using safe fallback`);
+        finalStory = `${cleanName} curled up in a cosy meadow beneath a blanket of stars. Fireflies danced, the breeze hummed a gentle lullaby, and soon — with a happy heart — ${cleanName} drifted off to the most peaceful sleep.`;
+        cleanTitle = `${cleanName}'s Peaceful Night`;
       }
 
       logEvent(`Pipeline complete for "${cleanName}": "${cleanTitle}"`);
