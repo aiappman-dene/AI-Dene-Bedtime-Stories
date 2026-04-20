@@ -7911,10 +7911,11 @@ function updateHomeChildCard() {
   if (avatarEl) avatarEl.textContent = (child.name || "?").charAt(0).toUpperCase();
 
   // Swap hero image based on child gender
-  const heroImg = childCard && childCard.querySelector(".hero-img");
+  const heroImg = document.querySelector(".hero-img");
   if (heroImg) {
     const g = (child.gender || "").toLowerCase();
-    heroImg.src = g === "boy" ? "/images/boy-hero.png" : "/images/girl-hero.png";
+    const newSrc = g === "boy" ? "/images/boy-hero.png?v=2" : "/images/girl-hero.png?v=2";
+    if (heroImg.src !== newSrc) heroImg.src = newSrc;
   }
 
   if (choicesEl) choicesEl.classList.remove("hidden");
