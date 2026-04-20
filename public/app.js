@@ -360,7 +360,20 @@ const UI_STRINGS = {
     settings_nav: "Settings",
     loading_text: "Writing your story…",
     loading_sub: "This usually takes 10–20 seconds",
+    loading_step_1: "✨ Imagining the world…",
+    loading_step_2: "📖 Bringing {{name}} to life…",
+    loading_step_3: "🌙 Weaving in the magic…",
+    loading_step_4: "🎨 Adding the finishing touches…",
+    loading_first_story: "✨ Creating {{name}}'s very first story…",
     creating_btn: "Creating…",
+    read_together_btn: "📖 Read Together",
+    empty_library_title: "No stories saved yet",
+    empty_library_hint: "Your first story is just a tap away. Save a story and it will appear here.",
+    empty_library_cta: "✨ Create a Story",
+    milestone_3: "🌙 3 nights in a row with {{name}}! You're building a magical bedtime routine ✨",
+    milestone_7: "⭐ 7 nights in a row! {{name}} has a real streak — a whole week of magical bedtimes 🌟",
+    milestone_14: "🏆 14 nights in a row with {{name}}! You're creating memories they'll carry forever 💫",
+    bonus_story_saved: "✨ A bonus story was added to {{name}}'s library",
     read_again: "Read again",
     pick_child_first: "Pick a child first",
     already_saved: "Already saved",
@@ -7386,6 +7399,7 @@ function setupReadingModeEvents() {
   const backBtn = $("backFromReading");
   const toggleBtn = $("toggleReadingMode");
   const dyslexiaBtn = $("toggleDyslexiaFont");
+  const readTogetherBtn = $("toggleReadTogether");
   const saveProgressBtn = $("saveProgressBtn");
   const readingMode = $("readingMode");
   if (!readingMode) return;
@@ -7410,6 +7424,19 @@ function setupReadingModeEvents() {
       const on = readingMode.classList.contains("dyslexia");
       localStorage.setItem("readingDyslexia", on ? "1" : "0");
       dyslexiaBtn.classList.toggle("active", on);
+    });
+  }
+
+  if (readTogetherBtn) {
+    if (localStorage.getItem("readingTogether") === "1") {
+      readingMode.classList.add("read-together");
+      readTogetherBtn.classList.add("active");
+    }
+    readTogetherBtn.addEventListener("click", () => {
+      readingMode.classList.toggle("read-together");
+      const on = readingMode.classList.contains("read-together");
+      localStorage.setItem("readingTogether", on ? "1" : "0");
+      readTogetherBtn.classList.toggle("active", on);
     });
   }
 
@@ -7753,14 +7780,49 @@ async function deleteChildByIndex(index) {
 // UI — Loading state
 // =============================================================================
 
+let _loadingStepInterval = null;
+
 function showLoading() {
   const overlay = $("loadingOverlay");
   if (overlay) overlay.classList.remove("hidden");
+
+  const stepEl = $("loadingStep");
+  if (!stepEl) return;
+
+  const child = getSelectedChild();
+  const name = child?.name && child.name !== "a little one" ? child.name : "";
+  const isFirst = !localStorage.getItem("dt-first-story") && name;
+
+  const steps = isFirst
+    ? [t("loading_first_story", { name }), t("loading_step_3"), t("loading_step_4")]
+    : [
+        t("loading_step_1"),
+        t("loading_step_2", { name: name || "your child" }),
+        t("loading_step_3"),
+        t("loading_step_4"),
+      ];
+
+  let stepIndex = 0;
+  stepEl.style.opacity = "1";
+  stepEl.textContent = steps[0];
+
+  if (_loadingStepInterval) clearInterval(_loadingStepInterval);
+  _loadingStepInterval = setInterval(() => {
+    stepIndex = (stepIndex + 1) % steps.length;
+    stepEl.style.opacity = "0";
+    setTimeout(() => {
+      stepEl.textContent = steps[stepIndex];
+      stepEl.style.opacity = "1";
+    }, 300);
+  }, 3000);
 }
 
 function hideLoading() {
   const overlay = $("loadingOverlay");
   if (overlay) overlay.classList.add("hidden");
+  if (_loadingStepInterval) { clearInterval(_loadingStepInterval); _loadingStepInterval = null; }
+  const stepEl = $("loadingStep");
+  if (stepEl) stepEl.textContent = "";
 }
 
 // =============================================================================
@@ -8126,6 +8188,8 @@ async function recordStreakForChild(childName) {
 
   cachedStreaks[childName] = next;
   updateStreakDisplay();
+  // Delay milestone slightly so the reading mode is visible first
+  setTimeout(() => showMilestoneCelebration(childName, next.count), 1200);
 
   try {
     const userRef = doc(db, "users", currentUser.uid);
@@ -8133,6 +8197,27 @@ async function recordStreakForChild(childName) {
   } catch (error) {
     console.error("Streak save failed:", error);
   }
+}
+
+/** Show a full-screen celebration overlay at streak milestones (3, 7, 14 nights). */
+function showMilestoneCelebration(childName, count) {
+  const MILESTONES = [3, 7, 14];
+  if (!MILESTONES.includes(count)) return;
+
+  const key = `milestone_${count}`;
+  const message = t(key, { name: childName });
+
+  const overlay = document.createElement("div");
+  overlay.className = "milestone-overlay";
+  overlay.innerHTML = `
+    <div class="milestone-content">
+      <div class="milestone-stars">${count >= 14 ? "🏆" : count >= 7 ? "⭐⭐⭐" : "🌙🌙🌙"}</div>
+      <p class="milestone-message">${message}</p>
+      <button class="milestone-close" onclick="this.closest('.milestone-overlay').remove()">Continue ✨</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  setTimeout(() => overlay.remove(), 12000);
 }
 
 /** Show the streak panel for the currently selected child. */
@@ -8195,7 +8280,16 @@ function renderLibrary() {
   list.innerHTML = "";
 
   if (items.length === 0) {
-    if (hint) hint.textContent = name ? `No saved stories for ${name} yet.` : "Add a child to see their stories.";
+    if (hint) hint.textContent = "";
+    const emptyDiv = document.createElement("div");
+    emptyDiv.className = "library-empty";
+    emptyDiv.innerHTML = `
+      <div class="library-empty-icon">📚</div>
+      <h3 class="library-empty-title">${t("empty_library_title")}</h3>
+      <p class="library-empty-hint">${name ? t("empty_library_hint") : "Add a child to see their stories."}</p>
+      ${name ? `<button class="library-empty-cta" onclick="navigateTo('home')">${t("empty_library_cta")}</button>` : ""}
+    `;
+    list.appendChild(emptyDiv);
     return;
   }
 
@@ -8816,6 +8910,8 @@ async function handleGenerate(mode) {
 
     // Count it toward the trial only if the child was really generated for
     recordStoryUsed();
+    // Mark first story as done so loading messages personalise correctly going forward
+    try { localStorage.setItem("dt-first-story", "1"); } catch {}
     enterReadingMode();
   } finally {
     hideLoading();
@@ -8824,6 +8920,49 @@ async function handleGenerate(mode) {
       button.textContent = originalText;
     }
     generationInProgress = false;
+  }
+}
+
+// =============================================================================
+// Bonus story auto-save — drain pre-cached stories into the user's library
+// =============================================================================
+
+async function autoSaveCachedToLibrary() {
+  if (!window.StoryCache || !currentUser || !cachedChildren.length) return;
+  try {
+    const unused = await window.StoryCache.listAllUnused();
+    if (!unused.length) return;
+
+    for (const entry of unused) {
+      if (!entry.childName || !entry.text) continue;
+      // Only save for children in this account
+      const child = cachedChildren.find((c) => c.name === entry.childName);
+      if (!child) continue;
+      // Claim it (marks as used in IndexedDB so it won't be re-saved)
+      const claimed = await window.StoryCache.claimCachedStory(entry.childName, entry.mode);
+      if (!claimed) continue;
+      const saved = await saveStoryToLibrary({
+        childName: claimed.childName,
+        title: claimed.title,
+        text: claimed.text,
+        mode: claimed.mode || "random",
+      });
+      if (saved) {
+        const msg = t("bonus_story_saved", { name: claimed.childName });
+        const toast = document.createElement("div");
+        toast.style.cssText =
+          "position:fixed;bottom:80px;left:50%;transform:translateX(-50%);" +
+          "background:rgba(30,20,60,0.95);color:#fff;border:1px solid rgba(123,97,255,0.4);" +
+          "border-radius:20px;padding:10px 20px;font-size:13px;font-weight:600;" +
+          "z-index:9999;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,0.4);";
+        toast.textContent = msg;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 4000);
+      }
+    }
+    window.StoryCache.updateOfflineIndicator();
+  } catch (err) {
+    console.warn("[autoSaveCached] failed:", err);
   }
 }
 
@@ -8862,6 +9001,8 @@ onAuthStateChanged(auth, async (user) => {
         getCurrentLanguage()
       );
       window.StoryCache.updateOfflineIndicator();
+      // After fill runs, auto-save any pre-generated stories to the library as bonus stories
+      setTimeout(() => autoSaveCachedToLibrary(), 30000);
     }
   } else {
     currentUser = null;

@@ -109,6 +109,15 @@ body::before {
   display: none !important;
 }
 
+@keyframes pageEnter {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+.page:not(.hidden) {
+  animation: pageEnter 220ms ease forwards;
+  will-change: opacity, transform;
+}
+
 .page-scroll {
   flex: 1;
   overflow-y: auto;
@@ -1964,3 +1973,170 @@ select {
 }
 .continue-play:hover { transform: scale(1.1); box-shadow: 0 5px 18px rgba(123,97,255,0.58); }
 .continue-play:active { transform: scale(0.93); }
+
+/* =============================================================================
+   Animated loading step message
+   ============================================================================= */
+
+.loading-step {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(200, 180, 255, 0.85);
+  margin: 6px 0 0;
+  min-height: 1.4em;
+  transition: opacity 300ms ease;
+}
+
+/* =============================================================================
+   Empty library state
+   ============================================================================= */
+
+.library-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 40px 24px 32px;
+  gap: 10px;
+}
+.library-empty-icon {
+  font-size: 52px;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.library-empty-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0;
+}
+.library-empty-hint {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin: 0;
+  max-width: 260px;
+  line-height: 1.5;
+}
+.library-empty-cta {
+  margin-top: 8px;
+  padding: 12px 28px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #7b61ff 0%, #ff6ec7 100%);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font);
+  box-shadow: 0 6px 20px rgba(123,97,255,0.45);
+  transition: transform 0.15s;
+}
+.library-empty-cta:active { transform: scale(0.97); }
+
+/* =============================================================================
+   Read Together Mode
+   ============================================================================= */
+
+.reading-mode.read-together .reading-text {
+  font-size: 1.35rem;
+  line-height: 2.05;
+  letter-spacing: 0.01em;
+}
+.reading-mode.read-together .reading-title {
+  font-size: 2rem;
+}
+.mode-toggle.active {
+  background: rgba(123,97,255,0.25);
+  color: #c4b5ff;
+}
+
+/* =============================================================================
+   Streak milestone celebration overlay
+   ============================================================================= */
+
+.milestone-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(6, 3, 20, 0.82);
+  animation: pageEnter 280ms ease forwards;
+  will-change: opacity, transform;
+}
+.milestone-content {
+  background: linear-gradient(160deg, #1a0a4a 0%, #0e0526 100%);
+  border: 1px solid rgba(255,208,96,0.4);
+  border-radius: 28px;
+  padding: 36px 32px;
+  text-align: center;
+  max-width: 320px;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.6), 0 0 40px rgba(123,97,255,0.25);
+}
+.milestone-stars {
+  font-size: 40px;
+  line-height: 1;
+  margin-bottom: 16px;
+}
+.milestone-message {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--gold);
+  line-height: 1.5;
+  margin: 0 0 20px;
+}
+.milestone-close {
+  background: linear-gradient(135deg, #7b61ff, #ff6ec7);
+  border: none;
+  border-radius: 14px;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  padding: 12px 32px;
+  cursor: pointer;
+  font-family: var(--font);
+}
+
+/* =============================================================================
+   Safety / How it works card (Settings)
+   ============================================================================= */
+
+.safety-card .safety-layer {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin: 14px 0;
+  padding: 12px;
+  background: rgba(123,97,255,0.07);
+  border-radius: 12px;
+  border: 1px solid rgba(123,97,255,0.15);
+}
+.safety-icon {
+  font-size: 22px;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.safety-layer strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 3px;
+}
+.safety-layer p {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.45;
+}
+.trust-footer {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin: 16px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255,255,255,0.07);
+}

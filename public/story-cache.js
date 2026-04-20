@@ -377,6 +377,26 @@
   }
 
   // ============================================================
+  // List all unused cached stories (without marking them used)
+  // Used by app.js to auto-save bonus stories to the library.
+  // ============================================================
+
+  async function listAllUnused() {
+    if (!dbAvailable) return [];
+    try {
+      const db = await openDB();
+      return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, "readonly");
+        const req = tx.objectStore(STORE_NAME).index("by_used").getAll(IDBKeyRange.only(false));
+        req.onsuccess = (e) => resolve(e.target.result || []);
+        req.onerror = (e) => reject(e.target.error);
+      });
+    } catch {
+      return [];
+    }
+  }
+
+  // ============================================================
   // Public API
   // ============================================================
 
@@ -385,6 +405,7 @@
     scheduleBackgroundFill,
     updateOfflineIndicator,
     pruneOldEntries,
+    listAllUnused,
   };
 
   // Open the DB eagerly so it's ready when needed

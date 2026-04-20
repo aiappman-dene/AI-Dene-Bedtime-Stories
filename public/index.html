@@ -397,6 +397,40 @@
           <p id="settingsLangStatus" class="hint" style="margin-top:10px"></p>
         </div>
 
+        <div class="card safety-card">
+          <h2>&#128274; How DreamTalez keeps your child safe</h2>
+          <p class="hint">Four layers of protection, always on.</p>
+          <div class="safety-layer">
+            <span class="safety-icon">&#128101;</span>
+            <div>
+              <strong>You control the content</strong>
+              <p>Stories come from your child's profile — their name, age, and interests. No strangers, no surprises.</p>
+            </div>
+          </div>
+          <div class="safety-layer">
+            <span class="safety-icon">&#9999;&#65039;</span>
+            <div>
+              <strong>Word filter</strong>
+              <p>All input is scanned before reaching the AI. Anything inappropriate is blocked with a friendly message.</p>
+            </div>
+          </div>
+          <div class="safety-layer">
+            <span class="safety-icon">&#129302;</span>
+            <div>
+              <strong>AI safety instructions</strong>
+              <p>Claude (our AI) is instructed to write calm, age-appropriate bedtime stories every single time.</p>
+            </div>
+          </div>
+          <div class="safety-layer">
+            <span class="safety-icon">&#128270;</span>
+            <div>
+              <strong>Output check</strong>
+              <p>Every story is scanned again before it reaches your child. Anything that fails is replaced with a safe fallback.</p>
+            </div>
+          </div>
+          <p class="trust-footer">&#128274; No ads &bull; No tracking &bull; Your stories stay yours</p>
+        </div>
+
         <div class="card">
           <h2 data-i18n="legal_heading">Legal</h2>
           <button type="button" class="btn ghost legal-link" onclick="navigateTo('privacy')" data-i18n="privacy_policy">Privacy Policy</button>
@@ -608,6 +642,7 @@
           <span class="star star-3">&#9733;</span>
         </div>
         <p class="loading-text" data-i18n="loading_text">Writing your story...</p>
+        <p id="loadingStep" class="loading-step"></p>
         <p class="loading-sub" data-i18n="loading_sub">This usually takes 10–20 seconds</p>
       </div>
     </div>
@@ -642,6 +677,7 @@
     <div class="reading-header">
       <button id="backFromReading" class="back-btn" aria-label="Go back">&#8592; Back</button>
       <div class="reading-tools">
+        <button id="toggleReadTogether" class="mode-toggle" aria-label="Read Together — larger text" title="Read Together">&#128214;</button>
         <button id="toggleDyslexiaFont" class="mode-toggle" aria-label="Toggle dyslexia-friendly font" title="Dyslexia-friendly font">Aa</button>
         <button id="toggleReadingMode" class="mode-toggle" aria-label="Toggle dark mode" title="Dark mode">&#127769;</button>
       </div>
@@ -656,6 +692,6 @@
   </div>
 
   <script src="/story-cache.js"></script>
-  <script type="module" src="/app.js?v=20260420c"></script>
+  <script type="module" src="/app.js?v=20260420d"></script>
 </body>
 </html>
