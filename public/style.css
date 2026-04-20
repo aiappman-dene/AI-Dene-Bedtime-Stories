@@ -1212,6 +1212,115 @@ select {
 }
 
 /* =============================================================================
+   One-Time Intro Screen
+   ============================================================================= */
+
+.intro-page {
+  background: #060818;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.intro-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.intro-glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+}
+
+.intro-glow-1 {
+  width: 340px;
+  height: 340px;
+  top: -80px;
+  left: -60px;
+  background: radial-gradient(circle, rgba(123,97,255,0.35) 0%, transparent 70%);
+}
+
+.intro-glow-2 {
+  width: 280px;
+  height: 280px;
+  bottom: -60px;
+  right: -40px;
+  background: radial-gradient(circle, rgba(255,110,199,0.3) 0%, transparent 70%);
+}
+
+.intro-content {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 40px 32px;
+  max-width: 360px;
+  will-change: opacity, transform;
+  animation: introFadeIn 1.2s ease both;
+}
+
+@keyframes introFadeIn {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.intro-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  line-height: 1;
+}
+
+.intro-title {
+  font-size: 34px;
+  font-weight: 800;
+  color: var(--gold);
+  margin: 0 0 20px;
+  letter-spacing: -0.02em;
+  text-shadow: 0 2px 24px rgba(255,208,96,0.4);
+}
+
+.intro-divider {
+  width: 48px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(123,97,255,0.7), transparent);
+  margin: 0 auto 24px;
+  border-radius: 2px;
+}
+
+.intro-body {
+  font-size: 15px;
+  line-height: 1.75;
+  color: rgba(255,255,255,0.72);
+  margin: 0 0 36px;
+}
+
+.intro-btn {
+  display: block;
+  width: 100%;
+  padding: 16px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #7b61ff 0%, #ff6ec7 100%);
+  color: #fff;
+  font-size: 17px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font);
+  letter-spacing: 0.01em;
+  box-shadow: 0 8px 28px rgba(123,97,255,0.55);
+  transition: transform 0.15s, box-shadow 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.intro-btn:hover  { transform: translateY(-2px); box-shadow: 0 10px 32px rgba(123,97,255,0.65); }
+.intro-btn:active { transform: scale(0.98); }
+
+/* =============================================================================
    Utility
    ============================================================================= */
 

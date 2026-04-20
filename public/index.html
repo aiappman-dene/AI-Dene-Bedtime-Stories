@@ -76,6 +76,27 @@
     </div>
 
     <!-- ================================================================== -->
+    <!-- ONE-TIME INTRO SCREEN                                              -->
+    <!-- ================================================================== -->
+    <div id="pageIntro" class="page intro-page hidden">
+      <div class="intro-bg">
+        <div class="intro-glow intro-glow-1"></div>
+        <div class="intro-glow intro-glow-2"></div>
+      </div>
+      <div class="intro-content">
+        <div class="intro-icon">&#128218;&#10024;</div>
+        <h1 class="intro-title">DreamTalez</h1>
+        <div class="intro-divider"></div>
+        <p class="intro-body">
+          DreamTalez was created to make bedtime more meaningful.<br><br>
+          A place where every child can become the hero of their own story — safe, magical, and personal every night.<br><br>
+          Because the moments we share at bedtime are the ones they'll remember forever.
+        </p>
+        <button type="button" class="intro-btn" onclick="beginFromIntro()">Begin</button>
+      </div>
+    </div>
+
+    <!-- ================================================================== -->
     <!-- HOME PAGE                                                           -->
     <!-- ================================================================== -->
     <div id="pageHome" class="page hidden">
@@ -564,15 +585,15 @@
       <button type="button" class="nav-create" aria-label="Create story" onclick="navigateTo('today')">+</button>
       <button type="button" class="nav-item nav-item-fav" data-page="library" onclick="navigateTo('library')">
         <span class="nav-icon">&#10084;</span>
-        <span class="nav-label">Favourites</span>
+        <span class="nav-label" data-i18n="favourites_nav">Favourites</span>
       </button>
       <button type="button" class="nav-item" data-page="children" onclick="navigateTo('children')">
         <span class="nav-icon">&#128100;</span>
-        <span class="nav-label">My Child</span>
+        <span class="nav-label" data-i18n="child_nav">My Child</span>
       </button>
       <button type="button" class="nav-item" data-page="settings" onclick="navigateTo('settings')">
         <span class="nav-icon">&#9881;</span>
-        <span class="nav-label">Account</span>
+        <span class="nav-label" data-i18n="account_nav">Account</span>
       </button>
     </nav>
 
@@ -635,6 +656,6 @@
   </div>
 
   <script src="/story-cache.js"></script>
-  <script type="module" src="/app.js?v=20260419c"></script>
+  <script type="module" src="/app.js?v=20260420a"></script>
 </body>
 </html>

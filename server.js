@@ -268,12 +268,15 @@ async function runDeliveryQaPass(storyText, dialect) {
 
 const CLAUDE_API_URL = "https://api.anthropic.com/v1/messages";
 const CLAUDE_MODEL_SONNET = "claude-sonnet-4-6";
+const CLAUDE_MODEL_HAIKU  = "claude-haiku-4-5-20251001";
 const CLAUDE_MODEL_DEFAULT = CLAUDE_MODEL_SONNET;
 const API_VERSION = "2023-06-01";
 
-// Tier model + creative temperature by story size.
-// All lengths use Sonnet for Disney-grade prose. Short (Quick Story)
-// gets the highest creative temperature for vivid, fresh storytelling.
+// Tiered model selection:
+//   hero / long  → Sonnet (richest prose, worth the extra seconds)
+//   medium       → Haiku  (fast, ~8–12s total, plenty for a good story)
+//   short/random → Haiku  (fastest path — bedtime shouldn't make parents wait)
+// In lean pipeline (default) this gives: Haiku×2 calls ≈ 8–14s end-to-end.
 function getModelConfig({ mode, length } = {}) {
   if (mode === "hero") {
     return { model: CLAUDE_MODEL_SONNET, temperature: 0.85 };
@@ -282,10 +285,10 @@ function getModelConfig({ mode, length } = {}) {
     case "long":
       return { model: CLAUDE_MODEL_SONNET, temperature: 0.8 };
     case "medium":
-      return { model: CLAUDE_MODEL_SONNET, temperature: 0.75 };
+      return { model: CLAUDE_MODEL_HAIKU,  temperature: 0.85 };
     case "short":
     default:
-      return { model: CLAUDE_MODEL_SONNET, temperature: 0.9 };
+      return { model: CLAUDE_MODEL_HAIKU,  temperature: 0.9 };
   }
 }
 

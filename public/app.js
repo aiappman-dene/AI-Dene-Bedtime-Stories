@@ -354,6 +354,9 @@ const UI_STRINGS = {
     delete_account: "Delete my account",
     home_nav: "Home",
     library_nav: "Library",
+    favourites_nav: "Favourites",
+    child_nav: "My Child",
+    account_nav: "Account",
     settings_nav: "Settings",
     loading_text: "Writing your story…",
     loading_sub: "This usually takes 10–20 seconds",
@@ -513,6 +516,9 @@ const UI_STRINGS = {
     delete_account: "Supprimer mon compte",
     home_nav: "Accueil",
     library_nav: "Bibliothèque",
+    favourites_nav: "Favoris",
+    child_nav: "Mon enfant",
+    account_nav: "Compte",
     settings_nav: "Paramètres",
     loading_text: "Écriture de votre histoire…",
     loading_sub: "Cela prend généralement 10–20 secondes",
@@ -672,6 +678,9 @@ const UI_STRINGS = {
     delete_account: "Eliminar mi cuenta",
     home_nav: "Inicio",
     library_nav: "Biblioteca",
+    favourites_nav: "Favoritos",
+    child_nav: "Mi hijo",
+    account_nav: "Cuenta",
     settings_nav: "Ajustes",
     loading_text: "Escribiendo tu cuento…",
     loading_sub: "Esto suele tardar 10–20 segundos",
@@ -831,6 +840,9 @@ const UI_STRINGS = {
     delete_account: "Eliminar a minha conta",
     home_nav: "Início",
     library_nav: "Biblioteca",
+    favourites_nav: "Favoritos",
+    child_nav: "Meu filho",
+    account_nav: "Conta",
     settings_nav: "Definições",
     loading_text: "A escrever a sua história…",
     loading_sub: "Normalmente demora 10–20 segundos",
@@ -990,6 +1002,9 @@ const UI_STRINGS = {
     delete_account: "Mein Konto löschen",
     home_nav: "Startseite",
     library_nav: "Bibliothek",
+    favourites_nav: "Favoriten",
+    child_nav: "Mein Kind",
+    account_nav: "Konto",
     settings_nav: "Einstellungen",
     loading_text: "Deine Geschichte wird geschrieben…",
     loading_sub: "Das dauert normalerweise 10–20 Sekunden",
@@ -1149,6 +1164,9 @@ const UI_STRINGS = {
     delete_account: "Elimina il mio account",
     home_nav: "Home",
     library_nav: "Libreria",
+    favourites_nav: "Preferiti",
+    child_nav: "Mio figlio",
+    account_nav: "Account",
     settings_nav: "Impostazioni",
     loading_text: "Scrittura della tua storia…",
     loading_sub: "Di solito ci vogliono 10–20 secondi",
@@ -1308,6 +1326,9 @@ const UI_STRINGS = {
     delete_account: "アカウントを削除",
     home_nav: "ホーム",
     library_nav: "ライブラリ",
+    favourites_nav: "お気に入り",
+    child_nav: "マイチャイルド",
+    account_nav: "アカウント",
     settings_nav: "設定",
     loading_text: "お話を書いています…",
     loading_sub: "通常10〜20秒かかります",
@@ -1467,6 +1488,9 @@ const UI_STRINGS = {
     delete_account: "删除我的账户",
     home_nav: "主页",
     library_nav: "故事库",
+    favourites_nav: "收藏",
+    child_nav: "我的孩子",
+    account_nav: "账户",
     settings_nav: "设置",
     loading_text: "正在写您的故事…",
     loading_sub: "通常需要10–20秒",
@@ -1626,6 +1650,9 @@ const UI_STRINGS = {
     delete_account: "حذف حسابي",
     home_nav: "الرئيسية",
     library_nav: "المكتبة",
+    favourites_nav: "المفضلة",
+    child_nav: "طفلي",
+    account_nav: "الحساب",
     settings_nav: "الإعدادات",
     loading_text: "جارٍ كتابة قصتك…",
     loading_sub: "يستغرق هذا عادةً 10–20 ثانية",
@@ -1785,6 +1812,9 @@ const UI_STRINGS = {
     delete_account: "मेरा खाता हटाएं",
     home_nav: "होम",
     library_nav: "लाइब्रेरी",
+    favourites_nav: "पसंदीदा",
+    child_nav: "मेरा बच्चा",
+    account_nav: "खाता",
     settings_nav: "सेटिंग्स",
     loading_text: "आपकी कहानी लिखी जा रही है…",
     loading_sub: "इसमें आमतौर पर 10–20 सेकंड लगते हैं",
@@ -1944,6 +1974,9 @@ const UI_STRINGS = {
     delete_account: "میرا اکاؤنٹ حذف کریں",
     home_nav: "ہوم",
     library_nav: "لائبریری",
+    favourites_nav: "پسندیدہ",
+    child_nav: "میرا بچہ",
+    account_nav: "اکاؤنٹ",
     settings_nav: "ترتیبات",
     loading_text: "آپ کی کہانی لکھی جا رہی ہے…",
     loading_sub: "اس میں عموماً 10–20 سیکنڈ لگتے ہیں",
@@ -7336,7 +7369,7 @@ function setupReadingModeEvents() {
 // UI — Page Navigation
 // =============================================================================
 
-const ALL_PAGES = ["authScreen", "pageLanguage", "pageHome", "pageChildren", "pageCreate", "pageToday", "pageLibrary", "pageSettings", "pagePrivacy", "pageTerms", "storyCard"];
+const ALL_PAGES = ["authScreen", "pageLanguage", "pageIntro", "pageHome", "pageChildren", "pageCreate", "pageToday", "pageLibrary", "pageSettings", "pagePrivacy", "pageTerms", "storyCard"];
 
 function navigateTo(page) {
   previousPage = currentPage;
@@ -7346,6 +7379,7 @@ function navigateTo(page) {
   const pageIdMap = {
     auth: "authScreen",
     language: "pageLanguage",
+    intro: "pageIntro",
     home: "pageHome",
     children: "pageChildren",
     create: "pageCreate",
@@ -7366,7 +7400,7 @@ function navigateTo(page) {
   // Bottom nav visibility + active state
   const nav = $("bottomNav");
   if (nav) {
-    nav.classList.toggle("hidden", page === "auth");
+    nav.classList.toggle("hidden", page === "auth" || page === "intro");
     nav.querySelectorAll(".nav-item").forEach((btn) => {
       btn.classList.toggle("active", btn.dataset.page === page);
     });
@@ -8328,8 +8362,12 @@ async function handleGenerate(mode) {
     // Show loading immediately so the user sees instant feedback
     showLoading();
 
-    // Fetch global inspiration in background — won't block the spinner
-    const globalIdeas = await getGlobalIdeaInspiration(ageGroup, getCurrentLanguage()).catch(() => []);
+    // Race the Firestore inspiration call against a 1.5s cap so it never
+    // delays the main generation fetch — empty array is a fine fallback.
+    const globalIdeas = await Promise.race([
+      getGlobalIdeaInspiration(ageGroup, getCurrentLanguage()).catch(() => []),
+      new Promise(resolve => setTimeout(() => resolve([]), 1500)),
+    ]);
 
     payload = {
       name: formatName(child.name),
@@ -8676,12 +8714,24 @@ async function handleGenerate(mode) {
 // Auth State Observer
 // =============================================================================
 
+function beginFromIntro() {
+  try { localStorage.setItem("dt-intro-seen", "1"); } catch {}
+  navigateTo("language");
+}
+window.beginFromIntro = beginFromIntro;
+
 onAuthStateChanged(auth, async (user) => {
   if (user) {
     currentUser = user;
     const { isNewUser } = await loadUserProfile();
     if (isNewUser) {
-      navigateTo("language");
+      // Show one-time intro on very first launch, then language picker
+      const introSeen = localStorage.getItem("dt-intro-seen") === "1";
+      if (!introSeen) {
+        navigateTo("intro");
+      } else {
+        navigateTo("language");
+      }
       return;
     }
     await loadChildren();
