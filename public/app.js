@@ -56,6 +56,12 @@ window.addEventListener("unhandledrejection", (e) => {
 });
 
 // =============================================================================
+// API
+// =============================================================================
+
+const API_BASE = "https://dreamtalez.onrender.com";
+
+// =============================================================================
 // App State
 // =============================================================================
 
@@ -5869,7 +5875,7 @@ async function handleSubscribe() {
     const headers = { "Content-Type": "application/json" };
     if (token) headers["Authorization"] = `Bearer ${token}`;
 
-    const res = await fetch("/api/checkout", { method: "POST", headers });
+    const res = await fetch(`${API_BASE}/api/checkout`, { method: "POST", headers });
     const data = await res.json();
 
     if (data.url) {
@@ -7518,7 +7524,7 @@ async function pollJob(jobId, maxWaitMs = 5 * 60 * 1000) {
   while (Date.now() - start < maxWaitMs) {
     await new Promise((r) => setTimeout(r, 3000));
     try {
-      const res = await fetch(`/api/job/${jobId}`);
+      const res = await fetch(`${API_BASE}/api/job/${jobId}`);
       const data = await res.json();
       if (data.status === "done") return data;
       if (data.status === "failed" || data.status === "expired") {
@@ -7559,7 +7565,7 @@ document.addEventListener("visibilitychange", async () => {
 
 function trackEvent(event, data = {}) {
   try {
-    fetch("/track", {
+    fetch(`${API_BASE}/track`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ event, data, ts: Date.now() }),
@@ -7646,7 +7652,7 @@ async function preloadHotStory(child, storyLength) {
     const baseInterests = child.interests?.length
       ? child.interests.join(", ")
       : "adventure, animals, magic";
-    const res = await fetch("/generate", {
+    const res = await fetch(`${API_BASE}/generate`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
       body: JSON.stringify({
@@ -8957,7 +8963,7 @@ async function handleGenerate(mode) {
     // Network failures fall through to the procedural catch block.
     // Job-based flow: POST returns a jobId immediately, we poll until done.
     // If the phone sleeps mid-poll, visibilitychange resumes it automatically.
-    const initResponse = await fetchWithTimeout("/generate", {
+    const initResponse = await fetchWithTimeout(`${API_BASE}/generate`, {
       method: "POST",
       headers: await buildAuthenticatedJsonHeaders(),
       body: JSON.stringify(payload),
@@ -9189,7 +9195,7 @@ async function handleGenerate(mode) {
       const isOnline = typeof navigator === "undefined" || navigator.onLine !== false;
       if (isOnline) {
         try {
-          const polishResponse = await fetch("/polish", {
+          const polishResponse = await fetch(`${API_BASE}/polish`, {
             method: "POST",
             headers: await buildAuthenticatedJsonHeaders(),
             body: JSON.stringify({
