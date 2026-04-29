@@ -188,7 +188,7 @@
         <div id="activeChildCard" class="home-hero hidden">
 
           <!-- Full-bleed hero image -->
-          <img src="/images/girl-hero.png" class="hero-img" alt="" aria-hidden="true" />
+          <!-- Hero image now set as background-image via JS for perfect fill and parity -->
 
           <!-- Dark gradient overlay left→transparent -->
           <div class="hero-overlay"></div>
@@ -226,7 +226,7 @@
             <p id="streakDisplay" class="streak-display hidden"></p>
             <p id="trialBanner" class="trial-banner hidden"></p>
 
-            <button type="button" class="btn-cta" onclick="navigateTo('today')" data-i18n="cta_create">&#11088; Create New Story</button>
+            <!-- Removed 'Create New Story' button from hero section -->
           </div>
 
         </div>
@@ -236,12 +236,12 @@
           <h2 class="section-title" data-i18n="choose_story">Choose your story</h2>
           <div class="story-cards-grid">
 
-            <!-- Quick Dream (Medium Surprise) -->
-            <div class="story-card card-purple" onclick="handleGenerate('medium-surprise')">
-              <div class="story-card-art">&#127769;</div>
-              <div class="story-card-name" data-i18n="card_quick_name">Quick Dream</div>
-              <div class="story-card-dur" data-i18n="card_quick_dur">5–7 min</div>
-              <div class="story-card-desc" data-i18n="card_quick_desc">A short, sweet story</div>
+            <!-- Create New Story (replaces Quick Dream) -->
+            <div class="story-card card-purple" onclick="navigateTo('today')">
+              <div class="story-card-art">&#11088;</div>
+              <div class="story-card-name">Create New Story</div>
+              <div class="story-card-dur">Start fresh</div>
+              <div class="story-card-desc">Begin a brand new bedtime adventure</div>
               <button class="story-card-arrow" aria-hidden="true">&rarr;</button>
             </div>
 

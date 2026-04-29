@@ -58,7 +58,7 @@ html, body {
   overflow: hidden;
 }
 
-body {
+    height: 100vh;
   font-family: var(--font);
   background: linear-gradient(160deg, #0a0520 0%, #0d0628 35%, #110830 65%, #160a40 100%);
   background-attachment: fixed;
@@ -1526,12 +1526,17 @@ select {
 /* ── Hero ── */
 .home-hero {
   position: relative;
-  height: 420px;
+  height: 100vh;
   overflow: hidden;
   margin-bottom: 0;
   border-bottom: 1px solid rgba(123,97,255,0.15);
   padding: 44px 20px 20px;
-  background: #060818;
+  width: 100vw;
+  min-width: 100%;
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  background-color: #060818;
 }
 
 .home-hero-content {
@@ -1542,13 +1547,11 @@ select {
 
 /* ── Hero background image ── */
 .hero-img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: right center;
-  z-index: 0;
+  display: none !important;
+}
+/* Add purple overlay gradient on right side of hero section to cover white edge of boy image */
+.home-hero::after {
+  display: none !important;
 }
 
 .home-hero-title {
@@ -1804,7 +1807,7 @@ select {
 .story-card {
   position: relative;
   border-radius: 20px;
-  padding: 18px 14px 14px;
+  padding: 10px 8px 8px;
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -1812,7 +1815,7 @@ select {
   overflow: hidden;
   transition: transform 0.18s, box-shadow 0.18s;
   -webkit-tap-highlight-color: transparent;
-  min-height: 130px;
+  min-height: 90px;
 }
 .story-card:hover  { transform: translateY(-3px); box-shadow: 0 10px 30px rgba(0,0,0,0.35); }
 .story-card:active { transform: scale(0.97); }
@@ -1840,26 +1843,26 @@ select {
 }
 
 .story-card-art {
-  font-size: 26px;
+  font-size: 20px;
   line-height: 1;
   margin-bottom: 6px;
 }
 
 .story-card-name {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 700;
   color: #fff;
   line-height: 1.2;
 }
 
 .story-card-dur {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   color: rgba(255,255,255,0.5);
 }
 
 .story-card-desc {
-  font-size: 11px;
+  font-size: 10px;
   color: rgba(255,255,255,0.4);
   margin-top: 2px;
 }

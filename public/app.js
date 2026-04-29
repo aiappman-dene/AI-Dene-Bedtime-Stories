@@ -7910,12 +7910,20 @@ function updateHomeChildCard() {
   if (heroTitleEl) heroTitleEl.textContent = t("hero_title", { name: child.name || "Your child" });
   if (avatarEl) avatarEl.textContent = (child.name || "?").charAt(0).toUpperCase();
 
-  // Swap hero image based on child gender
-  const heroImg = document.querySelector(".hero-img");
-  if (heroImg) {
+  // Set hero section background-image based on child gender (cinematic, full-bleed)
+  const heroSection = document.querySelector('.home-hero');
+  if (heroSection) {
     const g = (child.gender || "").toLowerCase();
-    const newSrc = g === "boy" ? "/images/boy-hero.png?v=2" : "/images/girl-hero.png?v=2";
-    if (heroImg.src !== newSrc) heroImg.src = newSrc;
+    let bgUrl = "/images/girl-hero.png.png";
+    if (g === "boy" || g === "male") {
+      bgUrl = "/images/boy-hero.png.png";
+    } else if (g === "girl" || g === "female") {
+      bgUrl = "/images/girl-hero.png.png";
+    }
+    heroSection.style.backgroundImage = `url('${bgUrl}')`;
+    heroSection.style.backgroundSize = 'cover';
+    heroSection.style.backgroundPosition = 'center top';
+    heroSection.style.backgroundRepeat = 'no-repeat';
   }
 
   if (choicesEl) choicesEl.classList.remove("hidden");
