@@ -1,4 +1,517 @@
 /* =============================================================================
+   COPPA & GDPR Consent Banner
+   ============================================================================= */
+.consent-banner {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(10, 5, 30, 0.98);
+  color: #ffd060;
+  z-index: 99999;
+  padding: 18px 0 12px;
+  box-shadow: 0 -2px 18px #0008;
+  text-align: center;
+  font-size: 1.05rem;
+  font-family: var(--font);
+}
+.consent-content {
+  max-width: 520px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+.consent-btn {
+  margin-top: 10px;
+  font-size: 1rem;
+  padding: 10px 22px;
+  border-radius: 14px;
+}
+/* =============================================================================
+   Accessibility Modes: Dyslexia Friendly & Neurodivergent Friendly
+   ============================================================================= */
+body.dyslexia, .dyslexia .reading-mode, .dyslexia .custom-section, .dyslexia .card, .dyslexia .story-output {
+  font-family: 'Lexend', 'Nunito', 'Segoe UI', Arial, sans-serif !important;
+  letter-spacing: 0.04em;
+  word-spacing: 0.08em;
+}
+body.dyslexia .custom-section-title, body.dyslexia h1, body.dyslexia h2, body.dyslexia h3, body.dyslexia .section-title {
+  font-family: 'Lexend', 'Nunito', 'Segoe UI', Arial, sans-serif !important;
+  font-weight: 800;
+}
+body.neuro, .neuro .reading-mode, .neuro .custom-section, .neuro .card, .neuro .story-output {
+  background: #181c2a !important;
+  color: #e6e6f0 !important;
+  font-family: 'Nunito', 'Segoe UI', Arial, sans-serif;
+}
+body.neuro .custom-section-title, body.neuro h1, body.neuro h2, body.neuro h3, body.neuro .section-title {
+  color: #ffd060 !important;
+}
+body.neuro .custom-section, body.neuro .card, body.neuro .story-output {
+  box-shadow: none !important;
+  border-color: #22243a !important;
+}
+body.neuro .story-card, body.neuro .adventure-card, body.neuro .help-card {
+  background: #23243a !important;
+  color: #ffd060 !important;
+  border: 1.5px solid #ffd060 !important;
+  box-shadow: none !important;
+}
+body.neuro .custom-divider {
+  background: #ffd060 !important;
+  opacity: 0.5 !important;
+}
+body.neuro .toggle-slider {
+  background: #ffd060 !important;
+}
+body.neuro .toggle-label input[type="checkbox"]:checked + .toggle-slider {
+  background: #7b61ff !important;
+}
+body.neuro * {
+  animation: none !important;
+  transition: none !important;
+}
+/* =============================================================================
+   Accessibility Toggles (Settings)
+   ============================================================================= */
+.accessibility-toggle-row {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 10px 0 0 0;
+}
+.toggle-label {
+  display: flex;
+  align-items: center;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text);
+  gap: 10px;
+  cursor: pointer;
+}
+.toggle-label input[type="checkbox"] {
+  display: none;
+}
+.toggle-slider {
+  width: 38px;
+  height: 22px;
+  background: #ccc;
+  border-radius: 22px;
+  position: relative;
+  transition: background 0.2s;
+  margin-right: 8px;
+}
+.toggle-label input[type="checkbox"]:checked + .toggle-slider {
+  background: var(--primary);
+}
+.toggle-slider::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  width: 16px;
+  height: 16px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+.toggle-label input[type="checkbox"]:checked + .toggle-slider::before {
+  transform: translateX(16px);
+}
+/* =============================================================================
+   Trust & Safety Badges
+   ============================================================================= */
+.trust-badges {
+  display: flex;
+  gap: 12px;
+  margin-top: 22px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.trust-badge {
+  display: inline-block;
+  padding: 7px 16px;
+  border-radius: 16px;
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: #fff;
+  background: var(--primary);
+  box-shadow: 0 2px 10px rgba(123,97,255,0.13);
+  letter-spacing: 0.04em;
+  border: 1.5px solid var(--primary-glow);
+  margin-bottom: 4px;
+  transition: background 0.18s;
+}
+.trust-badge.coppa { background: #4cdb93; border-color: #4cdb93; color: #fff; }
+.trust-badge.gdpr { background: #ffd060; border-color: #ffd060; color: #3a1f8a; }
+.trust-badge.dyslexia { background: #7b61ff; border-color: #7b61ff; color: #fff; }
+.trust-badge.neuro { background: #ff6ec7; border-color: #ff6ec7; color: #fff; }
+/* =============================================================================
+   Custom Story — Magical Adventures & Help Stories
+   ============================================================================= */
+.custom-section {
+  background: rgba(28, 10, 70, 0.78);
+  border: 1.5px solid rgba(123, 97, 255, 0.18);
+  border-radius: 22px;
+  box-shadow: 0 4px 24px rgba(123,97,255,0.08);
+  padding: 22px 18px 18px;
+  margin-bottom: 18px;
+  text-align: center;
+}
+.custom-section-title {
+  font-size: 1.18rem;
+  font-weight: 800;
+  color: var(--gold);
+  margin-bottom: 6px;
+  letter-spacing: -0.01em;
+}
+.custom-section-sub {
+  font-size: 0.98rem;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+  line-height: 1.4;
+}
+.custom-adventure-cards, .custom-help-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+.adventure-card, .help-card {
+  background: linear-gradient(135deg, #7b61ff 0%, #ff6ec7 100%);
+  color: #fff;
+  font-size: 1.01rem;
+  font-weight: 700;
+  border: none;
+  border-radius: 16px;
+  padding: 13px 18px;
+  box-shadow: 0 2px 12px rgba(123,97,255,0.13);
+  cursor: pointer;
+  transition: background 0.18s, transform 0.15s, box-shadow 0.18s;
+  outline: none;
+  min-width: 160px;
+  margin-bottom: 2px;
+}
+.adventure-card:hover, .help-card:hover {
+  background: linear-gradient(135deg, #9f7dff 0%, #ff8ee7 100%);
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 6px 24px rgba(123,97,255,0.18);
+}
+.custom-adventure-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  justify-content: center;
+}
+.custom-idea-icon {
+  font-size: 1.3em;
+  color: var(--gold);
+  margin-right: 2px;
+}
+.custom-adventure-input {
+  flex: 1 1 180px;
+  max-width: 260px;
+  padding: 11px 14px;
+  font-size: 1rem;
+  border-radius: 12px;
+  border: 1.5px solid var(--input-border);
+  background: var(--input-bg);
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.18s;
+}
+.custom-adventure-input:focus {
+  border-color: var(--input-focus);
+}
+.custom-adventure-go {
+  background: var(--primary);
+  color: #fff;
+  font-weight: 700;
+  border: none;
+  border-radius: 12px;
+  padding: 11px 18px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.18s;
+}
+.custom-adventure-go:hover {
+  background: var(--primary-hover);
+}
+.custom-divider {
+  width: 100%;
+  height: 2.5px;
+  background: linear-gradient(90deg, transparent, #ffd060 40%, #7b61ff 60%, transparent);
+  margin: 24px 0 18px;
+  border-radius: 2px;
+  opacity: 0.7;
+}
+.custom-help-note {
+  font-size: 0.92rem;
+  color: var(--gold);
+  margin-bottom: 10px;
+  margin-top: -2px;
+  line-height: 1.4;
+}
+.help-card.help-card-other {
+  background: rgba(123,97,255,0.08);
+  color: var(--text);
+  box-shadow: none;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 220px;
+  padding: 10px 10px 10px 14px;
+}
+.custom-help-input {
+  flex: 1 1 120px;
+  max-width: 180px;
+  padding: 9px 12px;
+  font-size: 0.98rem;
+  border-radius: 10px;
+  border: 1.5px solid var(--input-border);
+  background: var(--input-bg);
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.18s;
+}
+.custom-help-input:focus {
+  border-color: var(--input-focus);
+}
+.custom-help-go {
+  background: var(--primary);
+  color: #fff;
+  font-weight: 700;
+  border: none;
+  border-radius: 10px;
+  padding: 9px 14px;
+  font-size: 0.98rem;
+  cursor: pointer;
+  transition: background 0.18s;
+}
+.custom-help-go:hover {
+  background: var(--primary-hover);
+}
+/* =============================================================================
+   Welcome Screen Styles
+   ============================================================================= */
+.welcome-page {
+  position: absolute;
+  inset: 0;
+  z-index: 9999;
+  background: linear-gradient(160deg, #1a0a4a 0%, #0a0520 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  animation: fadeIn 1.2s cubic-bezier(.7,.2,.2,1);
+}
+.welcome-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+}
+.welcome-hero-illustration {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 100vw;
+  max-width: 700px;
+  min-width: 340px;
+  transform: translateX(-50%) scale(1.08);
+  opacity: 0.85;
+  z-index: 2;
+  pointer-events: none;
+  filter: blur(0.5px) brightness(0.92);
+}
+.welcome-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(20,10,60,0.92) 0%, rgba(20,10,60,0.82) 60%, rgba(20,10,60,0.98) 100%);
+  z-index: 3;
+}
+.welcome-stars {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  background: none;
+}
+.welcome-moon {
+  position: absolute;
+  top: 38px;
+  right: 44px;
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 60% 40%, #fffbe7 0%, #ffe7a0 60%, #fffbe700 100%);
+  box-shadow: 0 0 32px 8px #fffbe7cc, 0 0 80px 24px #ffe7a055;
+  opacity: 0.92;
+  z-index: 5;
+  filter: blur(0.5px);
+}
+.welcome-content {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+  text-align: center;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 18px;
+}
+.welcome-logo {
+  font-size: 2.2rem;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+  color: #fff;
+  background: linear-gradient(90deg, #fff 60%, #ffd060 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 18px;
+  opacity: 0;
+  animation: welcomeFadeIn 0.7s 0.1s forwards;
+}
+.welcome-sparkle {
+  color: #ffd060;
+  font-size: 1.1em;
+  vertical-align: middle;
+  margin-left: 2px;
+}
+.welcome-headline {
+  font-size: 1.45rem;
+  font-weight: 800;
+  color: #fff;
+  margin-bottom: 18px;
+  line-height: 1.22;
+  letter-spacing: -0.2px;
+  opacity: 0;
+  animation: welcomeFadeIn 0.7s 0.4s forwards;
+}
+.welcome-body {
+  font-size: 1.08rem;
+  color: #ffd060;
+  font-weight: 600;
+  margin-bottom: 18px;
+  line-height: 1.5;
+  opacity: 0;
+  animation: welcomeFadeIn 0.7s 0.7s forwards;
+}
+.welcome-closing {
+  font-size: 1.1rem;
+  color: #fff;
+  font-weight: 700;
+  margin-bottom: 32px;
+  opacity: 0;
+  animation: welcomeFadeIn 0.7s 1.0s forwards;
+}
+.welcome-begin-btn {
+  background: linear-gradient(90deg, #ffd060 0%, #7b61ff 100%);
+  color: #fff;
+  font-size: 1.18rem;
+  font-weight: 800;
+  border: none;
+  border-radius: 50px;
+  padding: 14px 44px;
+  box-shadow: 0 0 24px 4px #ffd06044, 0 0 0 2px #fff2;
+  cursor: pointer;
+  outline: none;
+  opacity: 0;
+  animation: welcomeFadeIn 0.7s 1.3s forwards, welcomePulse 2.2s 2.0s infinite alternate;
+  transition: box-shadow 0.18s, background 0.18s;
+}
+@keyframes welcomeFadeIn {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes welcomePulse {
+  0% { box-shadow: 0 0 24px 4px #ffd06044, 0 0 0 2px #fff2; }
+  100% { box-shadow: 0 0 44px 12px #ffd06099, 0 0 0 2px #fff2; }
+}
+
+/* Floating stars animation */
+.welcome-stars {
+  pointer-events: none;
+}
+.welcome-stars span {
+  position: absolute;
+  color: #ffd060;
+  font-size: 1.1em;
+  opacity: 0.7;
+  animation: welcomeStarFloat 6s linear infinite;
+}
+@keyframes welcomeStarFloat {
+  0% { transform: translateY(0) scale(1); opacity: 0.7; }
+  80% { opacity: 1; }
+  100% { transform: translateY(-120px) scale(1.2); opacity: 0; }
+}
+/* =============================================================================
+   Teddy Counter UI
+   ============================================================================= */
+.teddy-counter-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-left: 12px;
+}
+
+.teddy-topup-btn {
+  background: linear-gradient(135deg, #ffd060 0%, #ffb800 100%);
+  color: #7b61ff;
+  font-size: 1.18rem;
+  font-weight: 800;
+  border: none;
+  border-radius: 50px;
+  padding: 7px 18px 7px 14px;
+  box-shadow: 0 0 12px 2px rgba(255, 208, 96, 0.18), 0 0 0 2px #fff2;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  position: relative;
+  transition: box-shadow 0.18s, background 0.18s;
+  outline: none;
+}
+.teddy-topup-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+.teddy-topup-btn .teddy-glow {
+  position: absolute;
+  left: 0; right: 0; top: 0; bottom: 0;
+  border-radius: 50px;
+  pointer-events: none;
+  box-shadow: 0 0 18px 6px #ffd06088, 0 0 32px 12px #ffb80044;
+  opacity: 0.7;
+  z-index: 0;
+  animation: teddyGlow 2.2s infinite alternate;
+}
+@keyframes teddyGlow {
+  0% { opacity: 0.7; box-shadow: 0 0 18px 6px #ffd06088, 0 0 32px 12px #ffb80044; }
+  100% { opacity: 1; box-shadow: 0 0 28px 12px #ffd060cc, 0 0 48px 18px #ffb80088; }
+}
+.teddy-topup-btn .teddy-sparkle {
+  position: absolute;
+  right: 8px; top: 2px;
+  font-size: 1.1em;
+  color: #fffbe7;
+  opacity: 0;
+  pointer-events: none;
+  animation: teddySparkle 1.2s ease-in-out;
+}
+@keyframes teddySparkle {
+  0% { opacity: 0; transform: scale(0.7) rotate(-10deg); }
+  30% { opacity: 1; transform: scale(1.2) rotate(8deg); }
+  60% { opacity: 1; transform: scale(1.1) rotate(-6deg); }
+  100% { opacity: 0; transform: scale(0.7) rotate(0deg); }
+}
+/* =============================================================================
    DreamTalez — Premium Design System (App-like layout)
    ============================================================================= */
 

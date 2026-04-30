@@ -12,9 +12,49 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Lexend:wght@400;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/style.css?v=20260419a" />
+  <script type="module" src="/i18n.js"></script>
+  <script src="/consent.js" defer></script>
 </head>
 <body>
+    <!-- ================================================================== -->
+    <!-- WELCOME SCREEN (shown only after first sign up)                   -->
+    <!-- ================================================================== -->
+    <div id="pageWelcome" class="page welcome-page hidden">
+      <div class="welcome-bg">
+        <img src="/assets/bedroom-hero.svg" class="welcome-hero-illustration" alt="Bedroom Illustration" />
+        <div class="welcome-overlay"></div>
+        <div class="welcome-stars"></div>
+        <div class="welcome-moon"></div>
+      </div>
+      <div class="welcome-content">
+        <div class="welcome-logo">DreamTalez <span class="welcome-sparkle">✨</span></div>
+        <h1 class="welcome-headline">A bedtime story made just for <br>your child. Every single night.</h1>
+        <p class="welcome-body">Bedtime stories create memories that <br>last a lifetime. We've built something <br>magical — original, personal stories <br>starring your child, ready in seconds.</p>
+        <div class="welcome-closing">Your story starts tonight. 🌙</div>
+        <button id="welcomeBeginBtn" class="welcome-begin-btn">Begin ✨</button>
+      </div>
+    </div>
   <div class="app-shell">
+    <script>
+      // Auto-translate UI elements with data-i18n
+      function applyTranslations() {
+        document.querySelectorAll('[data-i18n]').forEach(el => {
+          const key = el.getAttribute('data-i18n');
+          if (window.i18n) el.textContent = window.i18n.t(key);
+        });
+        document.querySelectorAll('[data-i18n-ph]').forEach(el => {
+          const key = el.getAttribute('data-i18n-ph');
+          if (window.i18n) el.setAttribute('placeholder', window.i18n.t(key));
+        });
+      }
+      document.addEventListener('DOMContentLoaded', applyTranslations);
+      window.setAppLanguage = function(lang) {
+        if (window.i18n) {
+          window.i18n.setLang(lang);
+          applyTranslations();
+        }
+      };
+    </script>
 
     <!-- ================================================================== -->
     <!-- AUTH PAGE                                                           -->
@@ -43,6 +83,7 @@
 
           <p class="trust-line" data-i18n="trust_line">7-day free trial &bull; Then £3.99/month &bull; 10 stories per week &bull; No ads</p>
           <p class="auth-legal"><span data-i18n="auth_legal">By signing up you agree to our</span> <button type="button" class="inline-link" onclick="navigateTo('terms')" data-i18n="auth_terms">Terms</button> <span data-i18n="auth_and">and</span> <button type="button" class="inline-link" onclick="navigateTo('privacy')" data-i18n="auth_privacy">Privacy Policy</button></p>
+                  <p class="auth-legal"><span data-i18n="auth_legal">By signing up you agree to our</span> <button type="button" class="inline-link" onclick="navigateTo('terms')" data-i18n="auth_terms">Terms</button> <span data-i18n="auth_and">and</span> <button type="button" class="inline-link" onclick="navigateTo('privacy')" data-i18n="auth_privacy">Privacy Policy</button> <span data-i18n="auth_and">and</span> <button type="button" class="inline-link" onclick="navigateTo('trust')">Trust &amp; Safety</button></p>
         </div>
       </div>
     </div>
@@ -205,6 +246,9 @@
                 <span class="app-brand-tag">Every night, a new magical adventure starring your child &#10024;</span>
               </div>
             </div>
+            <div class="teddy-counter-wrap">
+              <button id="addTeddiesBtn" class="teddy-topup-btn" title="Add Teddies 🧸 99p" disabled>🧸 <span id="teddyCount">--</span></button>
+            </div>
             <button class="premium-badge" onclick="navigateTo('settings')">&#128081; Premium &ndash; Unlock All</button>
           </div>
 
@@ -264,13 +308,47 @@
             </div>
 
             <!-- Custom Story (My Idea) -->
-            <div class="story-card card-teal" onclick="openCreatePage('medium')">
-              <div class="story-card-art">&#129718;</div>
-              <div class="story-card-name" data-i18n="card_custom_name">Custom Story</div>
-              <div class="story-card-dur" data-i18n="card_custom_dur">Your idea</div>
-              <div class="story-card-desc" data-i18n="card_custom_desc">Tell us what you want</div>
-              <span class="story-card-new" data-i18n="card_custom_new">New</span>
-              <button class="story-card-arrow" aria-hidden="true">&rarr;</button>
+
+            <!-- SECTION 1 — MAGICAL ADVENTURES -->
+            <div class="custom-section custom-adventures">
+              <h2 class="custom-section-title">✨ Choose a Magical World</h2>
+              <p class="custom-section-sub">Where would you like to go tonight?</p>
+              <div class="custom-adventure-cards">
+                <button class="adventure-card" data-prompt="Alex goes to Toyland">🧸 Alex goes to Toyland</button>
+                <button class="adventure-card" data-prompt="A dragon who lost his magic">🐉 A dragon who lost his magic</button>
+                <button class="adventure-card" data-prompt="Under the deep blue ocean">🌊 Under the deep blue ocean</button>
+                <button class="adventure-card" data-prompt="A rocket to the candy planet">🚀 A rocket to the candy planet</button>
+              </div>
+              <div class="custom-adventure-input-row">
+                <span class="custom-idea-icon">💭</span>
+                <input id="customAdventureInput" class="custom-adventure-input" type="text" maxlength="120" placeholder="Type anything magical..." />
+                <button id="customAdventureGo" class="custom-adventure-go">Go</button>
+              </div>
+            </div>
+
+            <!-- Divider -->
+            <div class="custom-divider"></div>
+
+            <!-- SECTION 2 — MAGICAL HELP STORIES -->
+            <div class="custom-section custom-help">
+              <h2 class="custom-section-title">🌙 A Story Just for Tonight</h2>
+              <p class="custom-section-sub">Sometimes a story can help <br>with life's big moments — <br>gently and magically</p>
+              <div class="custom-help-note"><em>These stories handle big feelings <br>gently and magically — your child <br>will never know 🌙</em></div>
+              <div class="custom-help-cards">
+                <button class="help-card" data-situation="Starting something new">😰 Starting something new</button>
+                <button class="help-card" data-situation="Making new friends">👫 Making new friends</button>
+                <button class="help-card" data-situation="Feeling a little scared">🌙 Feeling a little scared</button>
+                <button class="help-card" data-situation="A new baby is coming">👶 A new baby is coming</button>
+                <button class="help-card" data-situation="Someone I love is away">✈️ Someone I love is away</button>
+                <button class="help-card" data-situation="Everything feels different">🏠 Everything feels different</button>
+                <button class="help-card" data-situation="Feeling a bit left out">💔 Feeling a bit left out</button>
+                <button class="help-card" data-situation="Something worrying me">🦷 Something worrying me</button>
+                <div class="help-card help-card-other">
+                  <span>➕ Something else...</span>
+                  <input id="customHelpInput" class="custom-help-input" type="text" maxlength="120" placeholder="Type anything..." />
+                  <button id="customHelpGo" class="custom-help-go">Go</button>
+                </div>
+              </div>
             </div>
 
           </div>
@@ -425,6 +503,21 @@
     <!-- ================================================================== -->
     <div id="pageSettings" class="page hidden">
       <div class="page-scroll">
+        <div class="card">
+          <h2>Accessibility</h2>
+          <div class="accessibility-toggle-row">
+            <label class="toggle-label">
+              <input type="checkbox" id="dyslexiaToggle" />
+              <span class="toggle-slider"></span>
+              Dyslexia Friendly Mode
+            </label>
+            <label class="toggle-label">
+              <input type="checkbox" id="neuroToggle" />
+              <span class="toggle-slider"></span>
+              Neurodivergent Friendly Mode
+            </label>
+          </div>
+        </div>
 
         <div class="page-header">
           <h2 class="page-title" data-i18n="settings_title">Settings</h2>

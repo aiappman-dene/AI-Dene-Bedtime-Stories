@@ -1,139 +1,284 @@
+function logEvent(message) {
+  console.log(`[${new Date().toISOString()}] ${message}`);
+}
+const PORT = process.env.PORT || 3000;
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const PUBLIC_DIR = path.join(__dirname, "public");
+const POLISH_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+const POLISH_LIMIT_MAX = 10;
+// Locale validation helper
+function isSupportedStoryLocale(lang) {
+  const supported = [
+    "en", "en-GB", "en-US",
+    "fr", "es", "de", "it",
+    "ja", "zh", "hi"
+  ];
+  return supported.includes(lang);
+}
 // =============================================================================
 // DreamTalez — Server
 // AI-powered bedtime story generator for children aged 2–12
 // =============================================================================
 
+
 import express from "express";
+import rateLimit from "express-rate-limit";
 import cors from "cors";
 import "dotenv/config";
 import helmet from "helmet";
-import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { applicationDefault, cert, getApps, initializeApp as initializeAdminApp } from "firebase-admin/app";
 import { getAuth as getAdminAuth } from "firebase-admin/auth";
+import { getFirestore } from "firebase-admin/firestore";
+
+// ✅ Rate limiter for /generate
+const generateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+});
+
+// =============================
+// Middleware definitions
+// =============================
+const corsMiddleware = cors({
+  origin: "*",
+});
 import { body, validationResult } from "express-validator";
 import fs from "fs";
 import https from "https";
 import crypto from "crypto";
 import path from "path";
+
+
+
+
 import {
   STORY_SYSTEM_PROMPT,
-  EDITOR_SYSTEM_PROMPT,
-  VALIDATOR_SYSTEM_PROMPT,
-  DELIVERY_QA_SYSTEM_PROMPT,
-  REWRITE_SYSTEM_PROMPT,
-  buildStoryPrompt,
-  buildGrammarPrompt,
-  buildValidationPrompt,
-  buildDeliveryQaPrompt,
-  buildTitlePrompt,
-  resolveLanguageCode,
+  EDITOR_SYSTEM_PROMPT
 } from "./prompts.js";
-import {
-  normalizeStoryLocale,
-  isSupportedStoryLocale,
-  normalizeStoryOutput,
-  detectStoryQualityIssues,
-  assertStoryQuality,
-  isStoryValid,
-} from "./story-quality.js";
-// import { createCheckoutSession } from "./stripe.js"; // re-enable when Stripe keys are set
+
+
+// =============================
+// App init
+// =============================
+const app = express();
+// Attach limiter before any /generate route
+app.use('/generate', generateLimiter);
+
+
+// =============================
+// Rate limiting — applied ONLY to API routes below, never to static assets.
+// Static files (app.js, CSS, HTML) must always load without limit-based throttling.
+// Duplicate generateLimiter declaration removed. The definition at the top is used.
+
+// Use middleware globally
+// =============================
+app.use(corsMiddleware);
+
+
+
 
 // =============================================================================
-// Config
+// Teddy Currency System — Constants
 // =============================================================================
+const TEDDY_DAILY_GRANT = 10;
+const TEDDY_MAX = 30;
+const TEDDY_TOPUP_AMOUNT = 20;
+const TEDDY_TOPUP_PRICE = 0.99; // GBP
+const TEDDY_COSTS = {
+  quick: 3,
+  magic: 5,
+  sleepy: 3,
+  custom: 4,
+};
 
-const PORT = process.env.PORT || 3000;
-const API_KEY = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY;
-const AI_ENABLED = !!API_KEY;
-const NODE_ENV = process.env.NODE_ENV || "development";
-const AI_PIPELINE_PROFILE = process.env.AI_PIPELINE_PROFILE === "full" ? "full" : "lean";
-const USE_FULL_AI_PIPELINE = AI_PIPELINE_PROFILE === "full";
-const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "http://localhost:3000")
-  .split(",")
-  .map((s) => s.trim());
-const REQUIRE_AUTH_FOR_AI_ROUTES = process.env.REQUIRE_AUTH_FOR_AI_ROUTES === "true";
-const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || process.env.GCLOUD_PROJECT || "";
-const FIREBASE_CLIENT_EMAIL = process.env.FIREBASE_CLIENT_EMAIL || "";
-const FIREBASE_PRIVATE_KEY = process.env.FIREBASE_PRIVATE_KEY
-  ? process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n")
-  : "";
-const GENERATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
-const GENERATE_LIMIT_MAX = Number(process.env.GENERATE_RATE_LIMIT_MAX || 20);
-const POLISH_LIMIT_WINDOW_MS = 15 * 60 * 1000;
-const POLISH_LIMIT_MAX = Number(process.env.POLISH_RATE_LIMIT_MAX || 20);
-const PUBLIC_DIR = path.join(process.cwd(), "public");
-
-function hasFirebaseAdminConfig() {
-  const hasServiceAccount = FIREBASE_PROJECT_ID && FIREBASE_CLIENT_EMAIL && FIREBASE_PRIVATE_KEY;
-  const hasApplicationDefault = !!process.env.GOOGLE_APPLICATION_CREDENTIALS;
-  const hasProjectIdOnly = !!FIREBASE_PROJECT_ID;
-  return hasServiceAccount || hasApplicationDefault || hasProjectIdOnly;
+// Helper: Get Firestore instance
+function getFirestoreDb() {
+  if (!getApps().length) getAdminAuth(); // ensure admin initialized
+  return getFirestore();
 }
 
-if (!AI_ENABLED) {
-  console.warn("AI key not configured. Server will start in procedural-only mode until ANTHROPIC_API_KEY or CLAUDE_API_KEY is set.");
-}
-
-if (REQUIRE_AUTH_FOR_AI_ROUTES) {
-  if (!hasFirebaseAdminConfig()) {
-    console.error("FATAL: REQUIRE_AUTH_FOR_AI_ROUTES=true requires Firebase Admin configuration via GOOGLE_APPLICATION_CREDENTIALS, full service-account env vars, or FIREBASE_PROJECT_ID for token verification.");
-    process.exit(1);
+// Helper: Get teddy doc for family (by UID)
+async function getTeddyDoc(uid) {
+  const db = getFirestoreDb();
+  const ref = db.collection("families").doc(uid);
+  let doc = await ref.get();
+  if (!doc.exists) {
+    // Create default teddy doc
+    await ref.set({
+      teddies_remaining: TEDDY_DAILY_GRANT,
+      teddies_last_reset: Date.now(),
+      teddies_lifetime_earned: TEDDY_DAILY_GRANT,
+      teddies_lifetime_spent: 0,
+      cached_stories: [],
+    });
+    doc = await ref.get();
   }
+  return { ref, data: doc.data() };
 }
 
-if (NODE_ENV === "production") {
-  if (!process.env.ALLOWED_ORIGINS) {
-    console.error("FATAL: ALLOWED_ORIGINS must be set explicitly in production.");
-    process.exit(1);
-  }
-
-  const invalidOrigins = ALLOWED_ORIGINS.filter((origin) => !/^https:\/\//i.test(origin));
-  if (invalidOrigins.length) {
-    console.error(`FATAL: Production ALLOWED_ORIGINS must use HTTPS only. Invalid entries: ${invalidOrigins.join(", ")}`);
-    process.exit(1);
-  }
+// Helper: Midnight reset logic
+function isNewDay(lastReset) {
+  const last = new Date(lastReset);
+  const now = new Date();
+  return last.getUTCFullYear() !== now.getUTCFullYear() || last.getUTCMonth() !== now.getUTCMonth() || last.getUTCDate() !== now.getUTCDate();
 }
 
-function getStoryTokenBudget(length, stage = "story", language = "en-GB") {
-  const normalizedLength = String(length || "medium").toLowerCase();
-
-  // Token multiplier by script family.
-  // Arabic / Hindi / Urdu scripts tokenize at roughly 2× the rate of English.
-  // CJK (Japanese / Chinese) is efficient but gets a small buffer.
-  // All other non-English languages get a moderate buffer.
-  const lang = String(language || "en-GB").toLowerCase();
-  const isEnglish = lang === "en-gb" || lang === "en-us" || lang === "british" || lang === "american";
-  const isAbjad  = lang === "ar" || lang === "hi" || lang === "ur";
-  const isCJK    = lang === "ja" || lang === "zh-cn";
-  const multiplier = isAbjad ? 2.0 : isCJK ? 1.2 : isEnglish ? 1.0 : 1.4;
-
-  if (normalizedLength === "short") {
-    if (stage === "title") return 80;
-    if (stage === "delivery") return Math.ceil(1400 * multiplier);
-    return Math.ceil(1400 * multiplier);   // 300-500 words + generous internal reasoning room
+// Teddy: Top-up endpoint (Stripe integration placeholder)
+app.post("/api/teddy-topup", requireAiAuth, async (req, res) => {
+  try {
+    const uid = req.authUser?.uid;
+    if (!uid) return res.status(401).json({ error: "Not authenticated" });
+    const { ref, data } = await getTeddyDoc(uid);
+    let { teddies_remaining, teddies_lifetime_earned } = data;
+    const add = Math.min(TEDDY_TOPUP_AMOUNT, TEDDY_MAX - (teddies_remaining || 0));
+    if (add <= 0) return res.status(400).json({ error: "Teddy cap reached" });
+    teddies_remaining += add;
+    teddies_lifetime_earned += add;
+    await ref.update({ teddies_remaining, teddies_lifetime_earned });
+    logTeddyEvent(uid, `Top-up: +${add} teddies (now ${teddies_remaining})`);
+    // TODO: Integrate Stripe payment/receipt
+    res.json({ ok: true, teddies_remaining });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
+});
 
-  if (normalizedLength === "long") {
-    if (stage === "title") return 100;
-    if (stage === "delivery") return Math.ceil(4800 * multiplier);
-    return Math.ceil(5000 * multiplier);   // 1800-2400 words + full Pixar quality headroom
-  }
 
-  // medium (default)
-  if (stage === "title") return 80;
-  if (stage === "delivery") return Math.ceil(2800 * multiplier);
-  return Math.ceil(3000 * multiplier);     // 900-1200 words + quality headroom
-}
 
-// =============================================================================
-// Logging
-// =============================================================================
+  // Teddy-aware story generation endpoint
+  app.post(
+    "/generate",
+    corsMiddleware,
+    requireAiAuth,
+    generateLimiter,
+    [
+      body("name").isString().isLength({ min: 1, max: 50 }).trim(),
+      body("age").isString().isLength({ min: 1, max: 10 }).trim(),
+      body("interests").isString().isLength({ min: 1, max: 200 }).trim(),
+      body("length").isIn(["short", "medium", "long"]),
+      body("mode").isIn(["random", "hero", "today"]),
+      body("dialect").optional().custom(isSupportedStoryLocale),
+      body("customIdea").optional().isString().isLength({ max: 200 }).trim(),
+      body("seriesContext").optional().isString().isLength({ max: 700 }).trim(),
+      body("childWish").optional().isString().isLength({ max: 120 }).trim(),
+      body("appearance").optional().isString().isLength({ max: 200 }).trim(),
+      body("dayBeats").optional().isString().isLength({ max: 400 }).trim(),
+      body("dayMood").optional().isString().isLength({ max: 40 }).trim(),
+      body("language").optional().isString().isLength({ max: 10 }).trim(),
+      body("globalInspiration").optional().isArray({ max: 10 }),
+      body("storyType").optional().isIn(["quick", "magic", "sleepy", "custom"]),
+    ],
+    async (req, res) => {
+      try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+          logEvent("Validation error: " + JSON.stringify(errors.array()));
+          return res.status(400).json({ error: "Please check your input and try again." });
+        }
 
-function logEvent(msg) {
-  const entry = `[${new Date().toISOString()}] ${msg}\n`;
-  fs.appendFile("server.log", entry, () => {});
-  if (NODE_ENV === "development") console.log(entry.trim());
-}
+        const { name, age, interests, length, mode, dialect, language, customIdea, seriesContext, childWish, appearance, dayBeats, dayMood, globalInspiration, storyType } = req.body;
+        const cleanName = sanitizeInput(name);
+        const cleanAge = sanitizeInput(age);
+        const cleanInterests = sanitizeInput(interests);
+        const cleanStoryType = storyType || "quick";
+        // `language` takes priority over legacy `dialect`.
+        // Resolve to a canonical code (e.g. "ja", "ar", "en-GB").
+        const cleanLanguage = language
+          ? resolveLanguageCode(String(language).trim().substring(0, 10))
+          : resolveLanguageCode(dialect);
+        const cleanDialect = cleanLanguage; // keep existing references working
+        const cleanIdea = customIdea ? sanitizeInput(customIdea) : null;
+        const cleanSeriesContext = seriesContext
+          ? String(seriesContext).replace(/[<>{}\[\]]/g, "").trim().substring(0, 700)
+          : null;
+        const cleanWish = childWish ? sanitizeInput(childWish) : null;
+        const cleanAppearance = appearance ? sanitizeInput(appearance) : null;
+        // dayBeats is up to 400 chars — use a longer sanitizer pass
+        const cleanBeats = dayBeats
+          ? String(dayBeats).replace(/[<>{}\[\]]/g, "").trim().substring(0, 400)
+          : null;
+        const cleanMood = dayMood ? sanitizeInput(dayMood) : null;
+
+        const SAFE_MSG = "Let's keep stories kind and magical ✨";
+
+        // XSS / injection check
+        if (containsSuspiciousContent(cleanName) || containsSuspiciousContent(cleanInterests)) {
+          logEvent(`Blocked suspicious input from ${req.ip}: ${cleanName}`);
+          return res.status(400).json({ error: "Invalid input detected." });
+        }
+
+        // Child-safety content check on all free-text user fields
+        const unsafeFields = [cleanIdea, cleanWish, cleanBeats, cleanAppearance, cleanMood]
+          .filter(Boolean)
+          .find(isUnsafeForChildren);
+
+        if (unsafeFields) {
+          logEvent(`Blocked unsafe content from ${req.ip}`);
+          return res.status(400).json({ error: SAFE_MSG, unsafe: true });
+        }
+
+        if (cleanSeriesContext && containsSuspiciousContent(cleanSeriesContext)) {
+          logEvent(`Blocked suspicious series context from ${req.ip}`);
+          return res.status(400).json({ error: "Invalid input detected." });
+        }
+
+        // TEDDY CURRENCY: Check and spend teddies before generating
+        const uid = req.authUser?.uid;
+        if (!uid) return res.status(401).json({ error: "Not authenticated" });
+        try {
+          await checkAndSpendTeddies(uid, cleanStoryType);
+        } catch (err) {
+          if (err.message === "not_enough_teddies") {
+            return res.status(402).json({ error: "All your teddies have been used tonight! Come back tomorrow or add more for 99p 🧸", teddies: 0 });
+          }
+          throw err;
+        }
+
+        logEvent(`Generating ${mode} story for \"${cleanName}\" (age ${cleanAge}), interests: \"${cleanInterests}\"${cleanIdea ? `, idea: \"${cleanIdea}\"` : ""}${cleanWish ? `, wish: \"${cleanWish}\"` : ""}, length: ${length}, dialect: ${cleanDialect}`);
+
+        const cleanGlobalInspiration = Array.isArray(globalInspiration)
+          ? globalInspiration
+              .slice(0, 5)
+              .map((s) => sanitizeInput(String(s || "").trim().substring(0, 100)))
+              .filter(Boolean)
+          : [];
+
+        const storyInputs = {
+          name: cleanName,
+          age: cleanAge,
+          gender: cleanGender,
+          interests: cleanInterests,
+          siblings: cleanSiblings,
+          family: cleanFamily,
+          cultural_world: cleanCulturalWorld,
+          recurring_character: cleanRecurringCharacter,
+          last_story_summary: cleanLastStorySummary,
+          language: cleanLanguage,
+        };
+
+        // Create job, respond immediately so the client connection can close.
+        // Phone can sleep — the pipeline keeps running on the server.
+        const jobId = createJob();
+        res.json({ jobId });
+
+        // Run pipeline in background — result stored in jobStore for client to poll.
+        runStoryPipeline(storyInputs, { mode, cleanName, cleanDialect, cleanInterests, cleanIdea, cleanWish, cleanSeriesContext, cleanBeats, length })
+          .then(({ story, title }) => resolveJob(jobId, story, title))
+          .catch((err) => {
+            logEvent(`Pipeline error for job ${jobId}: ${err.message}`);
+            failJob(jobId, "story_failed");
+          });
+
+      } catch (error) {
+        logEvent(`Generate endpoint error: ${error.message}`);
+        res.status(500).json({ error: "Something went wrong. Please try again." });
+      }
+    }
+  );
 
 function getFirebaseAdminInstance() {
   if (!getApps().length) {
@@ -464,16 +609,15 @@ function isAiProviderUnavailableError(error) {
 // Express app
 // =============================================================================
 
-const app = express();
 
 app.disable("x-powered-by");
 
-if (NODE_ENV === "production") {
+if (process.env.NODE_ENV === "production") {
   app.set("trust proxy", 1);
 }
 
 // HTTPS redirect — must be first in production
-if (NODE_ENV === "production") {
+if (process.env.NODE_ENV === "production") {
   app.use((req, res, next) => {
     if (req.headers["x-forwarded-proto"] !== "https") {
       return res.redirect(301, "https://" + req.headers.host + req.url);
@@ -523,24 +667,9 @@ app.use(express.json({ limit: "10kb" }));
 // because Express's default error handler converts the thrown CORS error to 500.
 // Static file requests are same-origin and don't need CORS at all; only the
 // JSON API routes below need to opt in.
-const corsMiddleware = cors({
-  origin(origin, callback) {
-    if (!origin || ALLOWED_ORIGINS.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
-  credentials: true,
-});
+// Duplicate corsMiddleware declaration removed. The global definition at the top is used.
 
-// Rate limiting — applied ONLY to API routes below, never to static assets.
-// Static files (app.js, CSS, HTML) must always load without limit-based throttling.
-const generateLimiter = buildAiLimiter({
-  windowMs: GENERATE_LIMIT_WINDOW_MS,
-  max: GENERATE_LIMIT_MAX,
-  routeLabel: "/generate",
-});
+// Duplicate generateLimiter declaration removed. The definition at the top is used.
 
 const polishLimiter = buildAiLimiter({
   windowMs: POLISH_LIMIT_WINDOW_MS,
@@ -890,7 +1019,7 @@ app.get("/api/job/:jobId", corsMiddleware, (req, res) => {
 // Start server
 // =============================================================================
 
-if (NODE_ENV === "production" && process.env.SSL_KEY_PATH && process.env.SSL_CERT_PATH) {
+if (process.env.NODE_ENV === "production" && process.env.SSL_KEY_PATH && process.env.SSL_CERT_PATH) {
   const sslOptions = {
     key: fs.readFileSync(process.env.SSL_KEY_PATH),
     cert: fs.readFileSync(process.env.SSL_CERT_PATH),
@@ -903,7 +1032,7 @@ if (NODE_ENV === "production" && process.env.SSL_KEY_PATH && process.env.SSL_CER
   });
 } else {
   const server = app.listen(PORT, () => {
-    logEvent(`Server running on port ${PORT} (${NODE_ENV})`);
+    logEvent(`Server running on port ${PORT} (${process.env.NODE_ENV})`);
     console.log(`Server running on port ${PORT}`);
   });
   server.on("error", handleServerStartupError);

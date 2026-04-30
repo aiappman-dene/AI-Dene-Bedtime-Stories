@@ -1,50 +1,317 @@
-// =============================================================================
-// DreamTalez — Frontend Application
-// Production-quality bedtime story generator
-// =============================================================================
 
+// Firebase imports
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import {
   getAuth,
-  createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
-  sendPasswordResetEmail,
-  deleteUser,
-  EmailAuthProvider,
-  reauthenticateWithCredential,
+  onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-import {
-  getFirestore,
-  doc,
-  setDoc,
-  getDoc,
-  updateDoc,
-  arrayUnion,
-  arrayRemove,
-  deleteDoc,
-} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
-// =============================================================================
-// Firebase
-// =============================================================================
-
+// Firebase config
 const firebaseConfig = {
-  apiKey: "AIzaSyAoNxcJTiqah_Ig_1THapgWIYY3Y-nPWj8",
-  authDomain: "dreamtalez.firebaseapp.com",
-  projectId: "dreamtalez",
-  storageBucket: "dreamtalez.firebasestorage.app",
-  messagingSenderId: "219771634733",
-  appId: "1:219771634733:web:007c920a5442a4d19c24a4",
+  apiKey: "YOUR_KEY",
+  authDomain: "YOUR_DOMAIN",
+  projectId: "YOUR_PROJECT_ID",
+  appId: "YOUR_APP_ID"
 };
 
-const firebaseApp = initializeApp(firebaseConfig);
-const auth = getAuth(firebaseApp);
-const db = getFirestore(firebaseApp);
+// Initialize Firebase FIRST
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
 
-// Surface any top-level module failure — if this fires, the window.* exports
-// at the bottom of the file never ran and every inline onclick is a no-op.
+// ✅ NOTHING ABOVE THIS USES auth
+
+// 4. NOW SAFE TO USE auth
+onAuthStateChanged(auth, async (user) => {
+  currentUser = user;
+  console.log("AUTH STATE:", user);
+  if (user) {
+    // Show welcome screen if needed (returns true if shown)
+    if (await showWelcomeScreenIfNeeded(user)) return;
+    const { isNewUser } = await loadUserProfile();
+    if (isNewUser) {
+      // Show one-time intro on very first launch, then language picker
+      const introSeen = localStorage.getItem("dt-intro-seen") === "1";
+      if (!introSeen) {
+        navigateTo("intro");
+      } else {
+        navigateTo("language");
+      }
+      return;
+    }
+    await loadChildren();
+    navigateTo("home");
+    checkReturnUser();
+    trackEvent("app_opened");
+    // Second-session retention metric — fires once per user on their return visit
+    if (localStorage.getItem("dt-first-story") && !localStorage.getItem("dt-returned-once")) {
+      localStorage.setItem("dt-returned-once", "1");
+      trackEvent("user_returned");
+    }
+    // Start background cache fill once children are loaded
+    if (window.StoryCache) {
+      window.StoryCache.pruneOldEntries();
+      window.StoryCache.scheduleBackgroundFill(
+        cachedChildren,
+        () => currentUser?.getIdToken(),
+        getCurrentLanguage()
+      );
+      window.StoryCache.updateOfflineIndicator();
+      // Wire up bonus story hook + drain any cached stories from prior session
+      setTimeout(() => autoSaveCachedToLibrary(), 30000);
+    }
+    // Refresh teddy state
+    refreshTeddyState();
+  } else {
+    currentUser = null;
+    cachedChildren = [];
+    cachedStreaks = {};
+    cachedLibrary = [];
+    cachedSeries = {};
+    cachedTrial = null;
+    navigateTo('auth');
+  }
+});
+
+// ...existing code...
+
+window.login = async function () {
+  const email = document.getElementById("email")?.value;
+  const password = document.getElementById("password")?.value;
+  
+  console.log("LOGIN CLICKED", { email, password });
+  
+  try {
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    console.log("Logged in:", userCredential.user);
+  } catch (err) {
+    console.error("Login error:", err.message);
+    alert("Login failed: " + err.message);
+  }
+};
+// =============================================================================
+// Welcome Screen Logic
+// =============================================================================
+async function showWelcomeScreenIfNeeded(user) {
+  if (!user) return false;
+  const userDocRef = doc(db, "users", user.uid);
+  const userSnap = await getDoc(userDocRef);
+  if (!userSnap.exists()) return false;
+  const data = userSnap.data();
+  if (data.welcomeShown) return false;
+  // Show welcome screen
+  document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
+  const welcomePage = document.getElementById('pageWelcome');
+  if (welcomePage) welcomePage.classList.remove('hidden');
+  // Animate floating stars
+  setupWelcomeStars();
+  // Set flag in Firebase immediately
+  await updateDoc(userDocRef, { welcomeShown: true });
+  // Button handler
+  const btn = document.getElementById('welcomeBeginBtn');
+  if (btn) {
+    btn.onclick = () => {
+      welcomePage.classList.add('hidden');
+      navigateTo('home');
+    };
+  }
+  return true;
+}
+
+function setupWelcomeStars() {
+  const starsEl = document.querySelector('.welcome-stars');
+  if (!starsEl) return;
+  starsEl.innerHTML = '';
+  for (let i = 0; i < 18; i++) {
+    const star = document.createElement('span');
+    star.textContent = '★';
+    star.style.left = Math.random() * 98 + '%';
+    star.style.bottom = Math.random() * 60 + 10 + 'px';
+    star.style.fontSize = (0.9 + Math.random() * 0.7) + 'em';
+    star.style.opacity = (0.5 + Math.random() * 0.5).toFixed(2);
+    star.style.animationDelay = (Math.random() * 3.5) + 's';
+    starsEl.appendChild(star);
+  }
+}
+// =============================================================================
+// Teddy Currency System — Frontend Logic
+// =============================================================================
+let teddyCount = null;
+let teddyLastReset = null;
+let teddyGlowTimeout = null;
+
+async function fetchTeddyCount() {
+  if (!currentUser) return;
+  try {
+    const headers = await buildAuthenticatedJsonHeaders();
+    const res = await fetch(`${API_BASE}/api/teddy-topup`, { method: "GET", headers });
+    if (!res.ok) throw new Error("Failed to fetch teddies");
+    const data = await res.json();
+    teddyCount = data.teddies_remaining;
+    teddyLastReset = data.teddies_last_reset;
+    updateTeddyCounterUI();
+  } catch (e) {
+    teddyCount = null;
+    updateTeddyCounterUI();
+  }
+}
+
+function updateTeddyCounterUI() {
+  const teddyBtn = document.getElementById("addTeddiesBtn");
+  const teddySpan = document.getElementById("teddyCount");
+  if (!teddyBtn || !teddySpan) return;
+  teddySpan.textContent = teddyCount == null ? "--" : teddyCount;
+  teddyBtn.disabled = true; // Stripe coming soon
+  // Glow effect
+  if (!teddyBtn.querySelector('.teddy-glow')) {
+    const glow = document.createElement('span');
+    glow.className = 'teddy-glow';
+    teddyBtn.appendChild(glow);
+  }
+  // Low/zero teddy messages
+  if (teddyCount !== null && teddyCount <= 3) {
+    teddyBtn.title = teddyCount === 0
+      ? "All your teddies have been used tonight! Come back tomorrow or add more for 99p 🧸"
+      : "Running low on teddies! 🧸";
+    teddyBtn.style.filter = teddyCount === 0 ? 'grayscale(0.7)' : '';
+  } else {
+    teddyBtn.title = "Add Teddies 🧸 99p";
+    teddyBtn.style.filter = '';
+  }
+}
+
+function animateTeddySparkle() {
+  const teddyBtn = document.getElementById("addTeddiesBtn");
+  if (!teddyBtn) return;
+  let sparkle = teddyBtn.querySelector('.teddy-sparkle');
+  if (!sparkle) {
+    sparkle = document.createElement('span');
+    sparkle.className = 'teddy-sparkle';
+    sparkle.textContent = '✨';
+    teddyBtn.appendChild(sparkle);
+  }
+  sparkle.style.opacity = 1;
+  sparkle.style.animation = 'teddySparkle 1.2s ease-in-out';
+  setTimeout(() => { sparkle.style.opacity = 0; }, 1200);
+}
+
+// Call this after login and after every story generation/top-up/reset
+async function refreshTeddyState(animated = false) {
+  await fetchTeddyCount();
+  if (animated) animateTeddySparkle();
+}
+
+// (onAuthStateChanged handler moved above, see initialization section)
+// =============================================================================
+// DreamTalez — Frontend Application
+// =============================================================================
+// Accessibility Modes: Dyslexia Friendly & Neurodivergent Friendly
+// =============================================================================
+document.addEventListener('DOMContentLoaded', () => {
+  const dyslexiaToggle = document.getElementById('dyslexiaToggle');
+  const neuroToggle = document.getElementById('neuroToggle');
+  // Load saved state
+  if (localStorage.getItem('dt-dyslexia') === '1') {
+    document.body.classList.add('dyslexia');
+    if (dyslexiaToggle) dyslexiaToggle.checked = true;
+  }
+  if (localStorage.getItem('dt-neuro') === '1') {
+    document.body.classList.add('neuro');
+    if (neuroToggle) neuroToggle.checked = true;
+  }
+  // Toggle handlers
+  if (dyslexiaToggle) {
+    dyslexiaToggle.addEventListener('change', () => {
+      if (dyslexiaToggle.checked) {
+        document.body.classList.add('dyslexia');
+        localStorage.setItem('dt-dyslexia', '1');
+      } else {
+        document.body.classList.remove('dyslexia');
+        localStorage.removeItem('dt-dyslexia');
+      }
+    });
+  }
+  if (neuroToggle) {
+    neuroToggle.addEventListener('change', () => {
+      if (neuroToggle.checked) {
+        document.body.classList.add('neuro');
+        localStorage.setItem('dt-neuro', '1');
+      } else {
+        document.body.classList.remove('neuro');
+        localStorage.removeItem('dt-neuro');
+      }
+    });
+  }
+});
+// =============================================================================
+// Custom Story — Magical Adventures & Help Stories UI Logic
+// =============================================================================
+document.addEventListener('DOMContentLoaded', () => {
+  // Magical Adventure example cards
+  document.querySelectorAll('.adventure-card').forEach(btn => {
+    btn.addEventListener('click', e => {
+      const idea = btn.getAttribute('data-prompt') || btn.textContent;
+      submitCustomStoryIdea(idea, 'adventure');
+    });
+  });
+  // Magical Adventure open input
+  const advInput = document.getElementById('customAdventureInput');
+  const advGo = document.getElementById('customAdventureGo');
+  if (advInput && advGo) {
+    advGo.addEventListener('click', () => {
+      const idea = advInput.value.trim();
+      if (idea) submitCustomStoryIdea(idea, 'adventure');
+    });
+    advInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        const idea = advInput.value.trim();
+        if (idea) submitCustomStoryIdea(idea, 'adventure');
+      }
+    });
+  }
+  // Magical Help situation cards
+  document.querySelectorAll('.help-card').forEach(btn => {
+    if (btn.classList.contains('help-card-other')) return;
+    btn.addEventListener('click', e => {
+      const situation = btn.getAttribute('data-situation') || btn.textContent;
+      submitCustomStoryIdea(situation, 'help');
+    });
+  });
+  // Magical Help open input
+  const helpInput = document.getElementById('customHelpInput');
+  const helpGo = document.getElementById('customHelpGo');
+  if (helpInput && helpGo) {
+    helpGo.addEventListener('click', () => {
+      const situation = helpInput.value.trim();
+      if (situation) submitCustomStoryIdea(situation, 'help');
+    });
+    helpInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') {
+        const situation = helpInput.value.trim();
+        if (situation) submitCustomStoryIdea(situation, 'help');
+      }
+    });
+  }
+});
+
+/**
+ * Submits a custom story idea or situation for instant generation.
+ * @param {string} idea - The idea or situation text.
+ * @param {string} type - 'adventure' or 'help'.
+ */
+function submitCustomStoryIdea(idea, type) {
+  if (!idea) return;
+  // For help stories, flag as therapeutic mode
+  if (type === 'help') {
+    window.handleGenerate && handleGenerate({ mode: 'therapeutic', situation: idea });
+  } else {
+    // Adventure: treat as custom idea
+    window.handleGenerate && handleGenerate({ mode: 'custom', idea });
+  }
+}
+// Production-quality bedtime story generator
+// =============================================================================
+
 window.onerror = function (msg, url, line, col, error) {
   console.error("Global error:", msg, error);
 };
@@ -7771,6 +8038,11 @@ window.wizardFinish = wizardFinish;
 const ALL_PAGES = ["authScreen", "pageLanguage", "pageIntro", "pageWizard", "pageHome", "pageChildren", "pageCreate", "pageToday", "pageLibrary", "pageSettings", "pagePrivacy", "pageTerms", "storyCard"];
 
 function navigateTo(page) {
+  // Trust & Safety page navigation
+  if (page === 'trust') {
+    window.location.href = '/trust.html';
+    return;
+  }
   previousPage = currentPage;
   currentPage = page;
 
@@ -8204,6 +8476,7 @@ async function signup() {
       storyLocale: DIALECT_BRITISH,
       language: null, // null = new user who hasn't chosen a language yet
       createdAt: new Date().toISOString(),
+      welcomeShown: false,
     });
   } catch (error) {
     console.error("Signup failed:", error);
@@ -8814,7 +9087,80 @@ async function handleGenerate(mode) {
   let payload;
   let buttonId;
 
-  if (mode === "today") {
+  // Support new custom/therapeutic modes from Custom Story screen
+  if (typeof mode === 'object' && mode !== null) {
+    // { mode: 'custom', idea } or { mode: 'therapeutic', situation }
+    const child = getSelectedChild();
+    if (!child.name || child.name === "a little one") {
+      alert(t("alert_add_child"));
+      generationInProgress = false;
+      return;
+    }
+    if (mode.mode === 'custom') {
+      const rawIdea = (mode.idea || '').trim();
+      if (!rawIdea) {
+        alert(t("alert_add_idea"));
+        generationInProgress = false;
+        return;
+      }
+      if (!isClientInputSafe(rawIdea)) {
+        showSafetyMessage();
+        generationInProgress = false;
+        return;
+      }
+      const baseInterests = child.interests?.length
+        ? child.interests.join(", ")
+        : rawIdea;
+      const interests = enrichInterestsWithContext(baseInterests, child);
+      const seriesContext = buildSeriesContinuationContext(child.name);
+      payload = {
+        name: formatName(child.name),
+        age: String(child.age || 5),
+        interests,
+        length: "medium",
+        mode: "hero",
+        language: getCurrentLanguage(), dialect: cachedDialect,
+        customIdea: rawIdea,
+        seriesContext: seriesContext || undefined,
+        appearance: child.appearance || undefined,
+        personalWorld: buildPersonalWorld(child),
+      };
+      buttonId = null; // No button highlight for instant cards
+    } else if (mode.mode === 'therapeutic') {
+      const situation = (mode.situation || '').trim();
+      if (!situation) {
+        alert("Please enter a situation or feeling.");
+        generationInProgress = false;
+        return;
+      }
+      if (!isClientInputSafe(situation)) {
+        showSafetyMessage();
+        generationInProgress = false;
+        return;
+      }
+      // For therapeutic stories, pass a special flag and the situation
+      const baseInterests = child.interests?.length
+        ? child.interests.join(", ")
+        : situation;
+      const interests = enrichInterestsWithContext(baseInterests, child);
+      payload = {
+        name: formatName(child.name),
+        age: String(child.age || 5),
+        interests,
+        length: "medium",
+        mode: "therapeutic",
+        language: getCurrentLanguage(), dialect: cachedDialect,
+        therapeuticSituation: situation,
+        appearance: child.appearance || undefined,
+        personalWorld: buildPersonalWorld(child),
+      };
+      buttonId = null;
+    } else {
+      generationInProgress = false;
+      return;
+    }
+  }
+  else if (mode === "today") {
     // ---- Story from Today: weave real day-beats into a gentle story ----
     const child = getSelectedChild();
     if (!child.name || child.name === "a little one") {
@@ -8968,6 +9314,12 @@ async function handleGenerate(mode) {
   }
 
   try {
+    // Block if not enough teddies (frontend UX, backend is source of truth)
+    if (teddyCount !== null && teddyCount === 0) {
+      alert("All your teddies have been used tonight! Come back tomorrow or add more for 99p 🧸");
+      generationInProgress = false;
+      return;
+    }
     // All modes hit the AI pipeline when online.
     // Network failures fall through to the procedural catch block.
     // Job-based flow: POST returns a jobId immediately, we poll until done.
@@ -8985,6 +9337,16 @@ async function handleGenerate(mode) {
         if (button) { button.disabled = false; button.textContent = originalText; }
         generationInProgress = false;
         showSafetyMessage();
+        return;
+      }
+      if (initResponse.status === 402 && errorData?.teddies === 0) {
+        // Teddy currency block
+        teddyCount = 0;
+        updateTeddyCounterUI();
+        alert("All your teddies have been used tonight! Come back tomorrow or add more for 99p 🧸");
+        hideLoading();
+        if (button) { button.disabled = false; button.textContent = originalText; }
+        generationInProgress = false;
         return;
       }
       if (initResponse.status === 429) {
@@ -9014,6 +9376,9 @@ async function handleGenerate(mode) {
     if (data?.fallback) {
       throw Object.assign(new Error("AI unavailable, using procedural fallback."), { proceduralFallback: true });
     }
+
+    // After successful story, refresh teddy state (with sparkle)
+    refreshTeddyState(true);
 
     const story = typeof data?.story === "string" && data.story.trim()
       ? applyDialectToText(data.story, getCurrentLanguage())
@@ -9330,6 +9695,8 @@ window.beginFromIntro = beginFromIntro;
 onAuthStateChanged(auth, async (user) => {
   if (user) {
     currentUser = user;
+    // Show welcome screen if needed (returns true if shown)
+    if (await showWelcomeScreenIfNeeded(user)) return;
     const { isNewUser } = await loadUserProfile();
     if (isNewUser) {
       // Show one-time intro on very first launch, then language picker
@@ -9354,53 +9721,7 @@ onAuthStateChanged(auth, async (user) => {
     if (window.StoryCache) {
       window.StoryCache.pruneOldEntries();
       window.StoryCache.scheduleBackgroundFill(
-        cachedChildren,
-        () => currentUser?.getIdToken(),
-        getCurrentLanguage()
-      );
-      window.StoryCache.updateOfflineIndicator();
-      // Wire up bonus story hook + drain any cached stories from prior session
-      setTimeout(() => autoSaveCachedToLibrary(), 30000);
-    }
-  } else {
-    currentUser = null;
-    cachedChildren = [];
-    cachedStreaks = {};
-    cachedLibrary = [];
-    cachedSeries = {};
-    cachedTrial = null;
-    cachedDialect = DIALECT_BRITISH;
-    selectedChildIndex = 0;
-    navigateTo("auth");
-  }
-});
 
-// =============================================================================
-// Event Listeners — consolidated in one place
-// =============================================================================
-
-// When the device regains internet, replenish the offline cache
-window.addEventListener("online", () => {
-  if (window.StoryCache && cachedChildren.length && currentUser) {
-    window.StoryCache.scheduleBackgroundFill(
-      cachedChildren,
-      () => currentUser?.getIdToken(),
-      getCurrentLanguage()
-    );
-  }
-});
-
-// Hero "Start a new series" button
-const seriesResetBtn = $("heroSeriesResetBtn");
-if (seriesResetBtn) {
-  seriesResetBtn.addEventListener("click", resetHeroSeries);
-}
-
-// Subscribe button (paywall)
-const subscribeBtn = $("subscribeBtn");
-if (subscribeBtn) {
-  subscribeBtn.addEventListener("click", handleSubscribe);
-}
 
 // Sample story button (landing page, no-signup demo)
 const sampleBtn = $("sampleStoryBtn");
