@@ -1,7 +1,9 @@
+import dotenv from "dotenv";
+dotenv.config();
+
 function logEvent(message) {
   console.log(`[${new Date().toISOString()}] ${message}`);
 }
-const PORT = process.env.PORT || 3000;
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -28,7 +30,6 @@ function isSupportedStoryLocale(lang) {
 import express from "express";
 import rateLimit from "express-rate-limit";
 import cors from "cors";
-import "dotenv/config";
 import helmet from "helmet";
 import { applicationDefault, cert, getApps, initializeApp as initializeAdminApp } from "firebase-admin/app";
 import { getAuth as getAdminAuth } from "firebase-admin/auth";
@@ -57,8 +58,35 @@ import path from "path";
 
 import {
   STORY_SYSTEM_PROMPT,
-  EDITOR_SYSTEM_PROMPT
+  EDITOR_SYSTEM_PROMPT,
+  VALIDATOR_SYSTEM_PROMPT,
+  DELIVERY_QA_SYSTEM_PROMPT,
+  buildStoryPrompt,
+  buildGrammarPrompt,
+  buildValidationPrompt,
+  buildDeliveryQaPrompt,
+  buildTitlePrompt,
+  resolveLanguageCode,
+  getDialectInstruction,
 } from "./prompts.js";
+
+import {
+  normalizeStoryOutput,
+  detectStoryQualityIssues,
+  assertStoryQuality,
+  isStoryValid,
+} from "./story-quality.js";
+
+// =============================================================================
+// Environment / config
+// =============================================================================
+const API_KEY = process.env.ANTHROPIC_API_KEY || "";
+const AI_ENABLED = !!API_KEY;
+const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "";
+const FIREBASE_CLIENT_EMAIL = process.env.FIREBASE_CLIENT_EMAIL || "";
+const FIREBASE_PRIVATE_KEY = (process.env.FIREBASE_PRIVATE_KEY || "").replace(/\\n/g, "\n");
+const REQUIRE_AUTH_FOR_AI_ROUTES = process.env.REQUIRE_AUTH_FOR_AI_ROUTES !== "false";
+const USE_FULL_AI_PIPELINE = process.env.USE_FULL_AI_PIPELINE === "true" || process.env.AI_PIPELINE_PROFILE === "full";
 
 
 // =============================
@@ -94,6 +122,86 @@ const TEDDY_COSTS = {
   sleepy: 3,
   custom: 4,
 };
+
+function normalizeGenerateMode(mode) {
+  switch (mode) {
+    case "sleepy":
+    case "long-surprise":
+    case "medium-surprise":
+      return "random";
+    case "therapeutic":
+    case "custom":
+      return "hero";
+    default:
+      return mode;
+  }
+}
+
+function deriveStoryTypeFromMode(mode) {
+  switch (mode) {
+    case "sleepy":
+      return "sleepy";
+    case "long-surprise":
+      return "magic";
+    case "therapeutic":
+    case "custom":
+      return "custom";
+    default:
+      return "quick";
+  }
+}
+
+// Helper: Log teddy currency events
+function logTeddyEvent(uid, msg) {
+  logEvent(`[TEDDY] uid=${uid}: ${msg}`);
+}
+
+// Helper: Hash an IP address for rate-limit key generation
+function ipKeyGenerator(ip) {
+  return crypto.createHash("sha256").update(ip || "").digest("hex").substring(0, 16);
+}
+
+// Helper: Return token budget based on story length and pipeline stage
+function getStoryTokenBudget(length, stage, dialect) {
+  const isNonEnglish = dialect && !["en", "en-GB", "en-US", "en-gb", "en-us"].includes(dialect);
+  const budgets = {
+    short:  { story: 700,  editor: 700,  validator: 700,  title: 40,  delivery: 600 },
+    medium: { story: 1400, editor: 1400, validator: 1400, title: 40,  delivery: 1200 },
+    long:   { story: 3200, editor: 3200, validator: 3200, title: 40,  delivery: 2800 },
+  };
+  const row = budgets[length] ?? budgets.medium;
+  const base = row[stage] ?? 1400;
+  // Non-English stories may need slightly more tokens
+  return isNonEnglish ? Math.ceil(base * 1.15) : base;
+}
+
+// Helper: Check and spend teddies for a story generation
+async function checkAndSpendTeddies(uid, storyType) {
+  const cost = TEDDY_COSTS[storyType] ?? TEDDY_COSTS.quick;
+  const { ref, data } = await getTeddyDoc(uid);
+  let { teddies_remaining, teddies_lifetime_spent, teddies_lifetime_earned, last_reset } = data;
+
+  // Daily grant: top up at midnight UTC
+  if (isNewDay(last_reset || new Date(0).toISOString())) {
+    const newGrant = Math.min(TEDDY_DAILY_GRANT, TEDDY_MAX - (teddies_remaining || 0));
+    if (newGrant > 0) {
+      teddies_remaining = (teddies_remaining || 0) + newGrant;
+      teddies_lifetime_earned = (teddies_lifetime_earned || 0) + newGrant;
+      logTeddyEvent(uid, `Daily grant: +${newGrant} (now ${teddies_remaining})`);
+    }
+    last_reset = new Date().toISOString();
+  }
+
+  if ((teddies_remaining || 0) < cost) {
+    throw new Error("not_enough_teddies");
+  }
+
+  teddies_remaining -= cost;
+  teddies_lifetime_spent = (teddies_lifetime_spent || 0) + cost;
+
+  await ref.update({ teddies_remaining, teddies_lifetime_spent, teddies_lifetime_earned, last_reset });
+  logTeddyEvent(uid, `Spent ${cost} for "${storyType}" (${teddies_remaining} left)`);
+}
 
 // Helper: Get Firestore instance
 function getFirestoreDb() {
@@ -160,9 +268,10 @@ app.post("/api/teddy-topup", requireAiAuth, async (req, res) => {
       body("age").isString().isLength({ min: 1, max: 10 }).trim(),
       body("interests").isString().isLength({ min: 1, max: 200 }).trim(),
       body("length").isIn(["short", "medium", "long"]),
-      body("mode").isIn(["random", "hero", "today"]),
+      body("mode").isIn(["random", "hero", "today", "sleepy", "long-surprise", "therapeutic", "custom", "medium-surprise"]),
       body("dialect").optional().custom(isSupportedStoryLocale),
       body("customIdea").optional().isString().isLength({ max: 200 }).trim(),
+      body("therapeuticSituation").optional().isString().isLength({ max: 200 }).trim(),
       body("seriesContext").optional().isString().isLength({ max: 700 }).trim(),
       body("childWish").optional().isString().isLength({ max: 120 }).trim(),
       body("appearance").optional().isString().isLength({ max: 200 }).trim(),
@@ -171,6 +280,12 @@ app.post("/api/teddy-topup", requireAiAuth, async (req, res) => {
       body("language").optional().isString().isLength({ max: 10 }).trim(),
       body("globalInspiration").optional().isArray({ max: 10 }),
       body("storyType").optional().isIn(["quick", "magic", "sleepy", "custom"]),
+      body("gender").optional().isString().isLength({ max: 20 }).trim(),
+      body("siblings").optional().isString().isLength({ max: 100 }).trim(),
+      body("family").optional().isString().isLength({ max: 100 }).trim(),
+      body("cultural_world").optional().isString().isLength({ max: 100 }).trim(),
+      body("recurring_character").optional().isString().isLength({ max: 100 }).trim(),
+      body("last_story_summary").optional().isString().isLength({ max: 400 }).trim(),
     ],
     async (req, res) => {
       try {
@@ -180,18 +295,21 @@ app.post("/api/teddy-topup", requireAiAuth, async (req, res) => {
           return res.status(400).json({ error: "Please check your input and try again." });
         }
 
-        const { name, age, interests, length, mode, dialect, language, customIdea, seriesContext, childWish, appearance, dayBeats, dayMood, globalInspiration, storyType } = req.body;
+        const { name, age, interests, length, mode, dialect, language, customIdea, therapeuticSituation, seriesContext, childWish, appearance, dayBeats, dayMood, globalInspiration, storyType, gender, siblings, family, cultural_world, recurring_character, last_story_summary } = req.body;
         const cleanName = sanitizeInput(name);
         const cleanAge = sanitizeInput(age);
         const cleanInterests = sanitizeInput(interests);
-        const cleanStoryType = storyType || "quick";
+        const incomingMode = mode;
+        const normalizedMode = normalizeGenerateMode(incomingMode);
+        const cleanStoryType = storyType || deriveStoryTypeFromMode(incomingMode);
         // `language` takes priority over legacy `dialect`.
         // Resolve to a canonical code (e.g. "ja", "ar", "en-GB").
         const cleanLanguage = language
           ? resolveLanguageCode(String(language).trim().substring(0, 10))
           : resolveLanguageCode(dialect);
         const cleanDialect = cleanLanguage; // keep existing references working
-        const cleanIdea = customIdea ? sanitizeInput(customIdea) : null;
+        const cleanTherapeuticSituation = therapeuticSituation ? sanitizeInput(therapeuticSituation) : null;
+        const cleanIdea = customIdea ? sanitizeInput(customIdea) : cleanTherapeuticSituation;
         const cleanSeriesContext = seriesContext
           ? String(seriesContext).replace(/[<>{}\[\]]/g, "").trim().substring(0, 700)
           : null;
@@ -202,6 +320,14 @@ app.post("/api/teddy-topup", requireAiAuth, async (req, res) => {
           ? String(dayBeats).replace(/[<>{}\[\]]/g, "").trim().substring(0, 400)
           : null;
         const cleanMood = dayMood ? sanitizeInput(dayMood) : null;
+        const cleanGender = gender ? sanitizeInput(gender) : null;
+        const cleanSiblings = siblings ? sanitizeInput(siblings) : null;
+        const cleanFamily = family ? sanitizeInput(family) : null;
+        const cleanCulturalWorld = cultural_world ? sanitizeInput(cultural_world) : null;
+        const cleanRecurringCharacter = recurring_character ? sanitizeInput(recurring_character) : null;
+        const cleanLastStorySummary = last_story_summary
+          ? String(last_story_summary).replace(/[<>{}\[\]]/g, "").trim().substring(0, 400)
+          : null;
 
         const SAFE_MSG = "Let's keep stories kind and magical ✨";
 
@@ -212,7 +338,7 @@ app.post("/api/teddy-topup", requireAiAuth, async (req, res) => {
         }
 
         // Child-safety content check on all free-text user fields
-        const unsafeFields = [cleanIdea, cleanWish, cleanBeats, cleanAppearance, cleanMood]
+        const unsafeFields = [cleanIdea, cleanTherapeuticSituation, cleanWish, cleanBeats, cleanAppearance, cleanMood]
           .filter(Boolean)
           .find(isUnsafeForChildren);
 
@@ -238,7 +364,7 @@ app.post("/api/teddy-topup", requireAiAuth, async (req, res) => {
           throw err;
         }
 
-        logEvent(`Generating ${mode} story for \"${cleanName}\" (age ${cleanAge}), interests: \"${cleanInterests}\"${cleanIdea ? `, idea: \"${cleanIdea}\"` : ""}${cleanWish ? `, wish: \"${cleanWish}\"` : ""}, length: ${length}, dialect: ${cleanDialect}`);
+        logEvent(`Generating ${incomingMode} story for \"${cleanName}\" (normalized=${normalizedMode}, age ${cleanAge}), interests: \"${cleanInterests}\"${cleanIdea ? `, idea: \"${cleanIdea}\"` : ""}${cleanWish ? `, wish: \"${cleanWish}\"` : ""}, length: ${length}, dialect: ${cleanDialect}`);
 
         const cleanGlobalInspiration = Array.isArray(globalInspiration)
           ? globalInspiration
@@ -266,7 +392,7 @@ app.post("/api/teddy-topup", requireAiAuth, async (req, res) => {
         res.json({ jobId });
 
         // Run pipeline in background — result stored in jobStore for client to poll.
-        runStoryPipeline(storyInputs, { mode, cleanName, cleanDialect, cleanInterests, cleanIdea, cleanWish, cleanSeriesContext, cleanBeats, length })
+        runStoryPipeline(storyInputs, { mode: normalizedMode, cleanName, cleanDialect, cleanInterests, cleanIdea, cleanWish, cleanSeriesContext, cleanBeats, length })
           .then(({ story, title }) => resolveJob(jobId, story, title))
           .catch((err) => {
             logEvent(`Pipeline error for job ${jobId}: ${err.message}`);
@@ -808,9 +934,10 @@ app.post(
     body("age").isString().isLength({ min: 1, max: 10 }).trim(),
     body("interests").isString().isLength({ min: 1, max: 200 }).trim(),
     body("length").isIn(["short", "medium", "long"]),
-    body("mode").isIn(["random", "hero", "today"]),
+    body("mode").isIn(["random", "hero", "today", "sleepy", "long-surprise", "therapeutic", "custom", "medium-surprise"]),
     body("dialect").optional().custom(isSupportedStoryLocale),
     body("customIdea").optional().isString().isLength({ max: 200 }).trim(),
+    body("therapeuticSituation").optional().isString().isLength({ max: 200 }).trim(),
     body("seriesContext").optional().isString().isLength({ max: 700 }).trim(),
     body("childWish").optional().isString().isLength({ max: 120 }).trim(),
     body("appearance").optional().isString().isLength({ max: 200 }).trim(),
@@ -818,6 +945,7 @@ app.post(
     body("dayMood").optional().isString().isLength({ max: 40 }).trim(),
     body("language").optional().isString().isLength({ max: 10 }).trim(),
     body("globalInspiration").optional().isArray({ max: 10 }),
+    body("storyType").optional().isIn(["quick", "magic", "sleepy", "custom"]),
   ],
   async (req, res) => {
     try {
@@ -827,17 +955,20 @@ app.post(
         return res.status(400).json({ error: "Please check your input and try again." });
       }
 
-      const { name, age, interests, length, mode, dialect, language, customIdea, seriesContext, childWish, appearance, dayBeats, dayMood, globalInspiration } = req.body;
+      const { name, age, interests, length, mode, dialect, language, customIdea, therapeuticSituation, seriesContext, childWish, appearance, dayBeats, dayMood, globalInspiration } = req.body;
       const cleanName = sanitizeInput(name);
       const cleanAge = sanitizeInput(age);
       const cleanInterests = sanitizeInput(interests);
+      const incomingMode = mode;
+      const normalizedMode = normalizeGenerateMode(incomingMode);
       // `language` takes priority over legacy `dialect`.
       // Resolve to a canonical code (e.g. "ja", "ar", "en-GB").
       const cleanLanguage = language
         ? resolveLanguageCode(String(language).trim().substring(0, 10))
         : resolveLanguageCode(dialect);
       const cleanDialect = cleanLanguage; // keep existing references working
-      const cleanIdea = customIdea ? sanitizeInput(customIdea) : null;
+      const cleanTherapeuticSituation = therapeuticSituation ? sanitizeInput(therapeuticSituation) : null;
+      const cleanIdea = customIdea ? sanitizeInput(customIdea) : cleanTherapeuticSituation;
       const cleanSeriesContext = seriesContext
         ? String(seriesContext).replace(/[<>{}\[\]]/g, "").trim().substring(0, 700)
         : null;
@@ -858,7 +989,7 @@ app.post(
       }
 
       // Child-safety content check on all free-text user fields
-      const unsafeFields = [cleanIdea, cleanWish, cleanBeats, cleanAppearance, cleanMood]
+      const unsafeFields = [cleanIdea, cleanTherapeuticSituation, cleanWish, cleanBeats, cleanAppearance, cleanMood]
         .filter(Boolean)
         .find(isUnsafeForChildren);
 
@@ -872,7 +1003,7 @@ app.post(
         return res.status(400).json({ error: "Invalid input detected." });
       }
 
-      logEvent(`Generating ${mode} story for "${cleanName}" (age ${cleanAge}), interests: "${cleanInterests}"${cleanIdea ? `, idea: "${cleanIdea}"` : ""}${cleanWish ? `, wish: "${cleanWish}"` : ""}, length: ${length}, dialect: ${cleanDialect}`);
+      logEvent(`Generating ${incomingMode} story for "${cleanName}" (normalized=${normalizedMode}, age ${cleanAge}), interests: "${cleanInterests}"${cleanIdea ? `, idea: "${cleanIdea}"` : ""}${cleanWish ? `, wish: "${cleanWish}"` : ""}, length: ${length}, dialect: ${cleanDialect}`);
 
       const cleanGlobalInspiration = Array.isArray(globalInspiration)
         ? globalInspiration
@@ -895,7 +1026,7 @@ app.post(
       res.json({ jobId });
 
       // Run pipeline in background — result stored in jobStore for client to poll.
-      runStoryPipeline(storyInputs, { mode, cleanName, cleanDialect, cleanInterests, cleanIdea, cleanWish, cleanSeriesContext, cleanBeats, length })
+      runStoryPipeline(storyInputs, { mode: normalizedMode, cleanName, cleanDialect, cleanInterests, cleanIdea, cleanWish, cleanSeriesContext, cleanBeats, length })
         .then(({ story, title }) => resolveJob(jobId, story, title))
         .catch((err) => {
           logEvent(`Pipeline error for job ${jobId}: ${err.message}`);
@@ -1015,40 +1146,40 @@ app.get("/api/job/:jobId", corsMiddleware, (req, res) => {
   res.json(job);
 });
 
-// =============================================================================
+// =============================
+// SERVER START (PRODUCTION SAFE + AUTO PORT)
+// =============================
+
+const DEFAULT_PORT = 3000;
+
+function normalizePort(val) {
+  const port = parseInt(val, 10);
+  if (isNaN(port)) return val;
+  if (port >= 0) return port;
+  return false;
+}
+
+function startServer(port) {
+  const normalizedPort = normalizePort(port);
+
+  const server = app.listen(normalizedPort, () => {
+    console.log(`✅ Server running on http://localhost:${normalizedPort}`);
+  });
+
+  server.on("error", (error) => {
+    if (error.syscall !== "listen") throw error;
+
+    if (error.code === "EADDRINUSE") {
+      console.warn(`⚠️ Port ${normalizedPort} busy, trying ${normalizedPort + 1}...`);
+      startServer(normalizedPort + 1);
+    } else if (error.code === "EACCES") {
+      console.error(`❌ Port ${normalizedPort} requires elevated privileges.`);
+      process.exit(1);
+    } else {
+      throw error;
+    }
+  });
+}
+
 // Start server
-// =============================================================================
-
-if (process.env.NODE_ENV === "production" && process.env.SSL_KEY_PATH && process.env.SSL_CERT_PATH) {
-  const sslOptions = {
-    key: fs.readFileSync(process.env.SSL_KEY_PATH),
-    cert: fs.readFileSync(process.env.SSL_CERT_PATH),
-  };
-  const server = https.createServer(sslOptions, app);
-  server.on("error", handleServerStartupError);
-  server.listen(PORT, () => {
-    logEvent(`HTTPS server running on port ${PORT}`);
-    console.log(`HTTPS server running on port ${PORT}`);
-  });
-} else {
-  const server = app.listen(PORT, () => {
-    logEvent(`Server running on port ${PORT} (${process.env.NODE_ENV})`);
-    console.log(`Server running on port ${PORT}`);
-  });
-  server.on("error", handleServerStartupError);
-}
-
-function handleServerStartupError(error) {
-  if (error?.code === "EADDRINUSE") {
-    console.error(`FATAL: Port ${PORT} is already in use. Stop the other server or change PORT in .env.`);
-    process.exit(1);
-  }
-
-  if (error?.code === "EACCES") {
-    console.error(`FATAL: Permission denied while starting the server on port ${PORT}. Try a different PORT.`);
-    process.exit(1);
-  }
-
-  console.error(`FATAL: Server startup failed: ${error?.message || error}`);
-  process.exit(1);
-}
+startServer(process.env.PORT || DEFAULT_PORT);

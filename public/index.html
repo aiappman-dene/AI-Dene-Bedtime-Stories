@@ -277,77 +277,55 @@
 
         <!-- ── STORY CARDS ── -->
         <div id="storyChoices" class="story-section hidden">
-          <h2 class="section-title" data-i18n="choose_story">Choose your story</h2>
-          <div class="story-cards-grid">
+          <div class="story-container">
 
-            <!-- Create New Story (replaces Quick Dream) -->
-            <div class="story-card card-purple" onclick="navigateTo('today')">
-              <div class="story-card-art">&#11088;</div>
-              <div class="story-card-name">Create New Story</div>
-              <div class="story-card-dur">Start fresh</div>
-              <div class="story-card-desc">Begin a brand new bedtime adventure</div>
-              <button class="story-card-arrow" aria-hidden="true">&rarr;</button>
-            </div>
+            <!-- HERO INPUT (PRIMARY ACTION) -->
+            <div class="story-hero">
+              <h2>✨ Tell a Story</h2>
+              <p>What should tonight’s story be about?</p>
 
-            <!-- Magic Adventure (Long Surprise) -->
-            <div class="story-card card-pink" onclick="handleGenerate('long-surprise')">
-              <div class="story-card-art">&#11088;</div>
-              <div class="story-card-name" data-i18n="card_magic_name">Magic Adventure</div>
-              <div class="story-card-dur" data-i18n="card_magic_dur">10+ min</div>
-              <div class="story-card-desc" data-i18n="card_magic_desc">A full magical journey</div>
-              <button class="story-card-arrow" aria-hidden="true">&rarr;</button>
-            </div>
-
-            <!-- Sleepy Story (Story From Today) -->
-            <div class="story-card card-blue" onclick="navigateTo('today')">
-              <div class="story-card-art">&#128164;</div>
-              <div class="story-card-name" data-i18n="card_sleepy_name">Sleepy Story</div>
-              <div class="story-card-dur" data-i18n="card_sleepy_dur">Calm &amp; relaxing</div>
-              <div class="story-card-desc" data-i18n="card_sleepy_desc">Gentle &amp; soothing</div>
-              <button class="story-card-arrow" aria-hidden="true">&rarr;</button>
-            </div>
-
-            <!-- Custom Story (My Idea) -->
-
-            <!-- SECTION 1 — MAGICAL ADVENTURES -->
-            <div class="custom-section custom-adventures">
-              <h2 class="custom-section-title">✨ Choose a Magical World</h2>
-              <p class="custom-section-sub">Where would you like to go tonight?</p>
-              <div class="custom-adventure-cards">
-                <button class="adventure-card" data-prompt="Alex goes to Toyland">🧸 Alex goes to Toyland</button>
-                <button class="adventure-card" data-prompt="A dragon who lost his magic">🐉 A dragon who lost his magic</button>
-                <button class="adventure-card" data-prompt="Under the deep blue ocean">🌊 Under the deep blue ocean</button>
-                <button class="adventure-card" data-prompt="A rocket to the candy planet">🚀 A rocket to the candy planet</button>
-              </div>
-              <div class="custom-adventure-input-row">
-                <span class="custom-idea-icon">💭</span>
-                <input id="customAdventureInput" class="custom-adventure-input" type="text" maxlength="120" placeholder="Type anything magical..." />
-                <button id="customAdventureGo" class="custom-adventure-go">Go</button>
+              <div class="story-input-row">
+                <input id="storyInput" type="text" placeholder="A dragon who lost his magic..." />
+                <button onclick="startCustomStory()">Go</button>
               </div>
             </div>
 
-            <!-- Divider -->
-            <div class="custom-divider"></div>
+            <!-- QUICK OPTIONS -->
+            <div class="quick-grid">
+              <div class="quick-card" onclick="startSleepyStory()">
+                🌙 Sleepy Story
+                <span>Calm &amp; relaxing</span>
+              </div>
 
-            <!-- SECTION 2 — MAGICAL HELP STORIES -->
-            <div class="custom-section custom-help">
-              <h2 class="custom-section-title">🌙 A Story Just for Tonight</h2>
-              <p class="custom-section-sub">Sometimes a story can help <br>with life's big moments — <br>gently and magically</p>
-              <div class="custom-help-note"><em>These stories handle big feelings <br>gently and magically — your child <br>will never know 🌙</em></div>
-              <div class="custom-help-cards">
-                <button class="help-card" data-situation="Starting something new">😰 Starting something new</button>
-                <button class="help-card" data-situation="Making new friends">👫 Making new friends</button>
-                <button class="help-card" data-situation="Feeling a little scared">🌙 Feeling a little scared</button>
-                <button class="help-card" data-situation="A new baby is coming">👶 A new baby is coming</button>
-                <button class="help-card" data-situation="Someone I love is away">✈️ Someone I love is away</button>
-                <button class="help-card" data-situation="Everything feels different">🏠 Everything feels different</button>
-                <button class="help-card" data-situation="Feeling a bit left out">💔 Feeling a bit left out</button>
-                <button class="help-card" data-situation="Something worrying me">🦷 Something worrying me</button>
-                <div class="help-card help-card-other">
-                  <span>➕ Something else...</span>
-                  <input id="customHelpInput" class="custom-help-input" type="text" maxlength="120" placeholder="Type anything..." />
-                  <button id="customHelpGo" class="custom-help-go">Go</button>
-                </div>
+              <div class="quick-card" onclick="startAdventureStory()">
+                ✨ Adventure
+                <span>Magical journey</span>
+              </div>
+
+              <div class="quick-card" onclick="toggleFeelings()">
+                ❤️ Big Feelings
+                <span>Gentle emotional stories</span>
+              </div>
+            </div>
+
+            <!-- FEELINGS (HIDDEN BY DEFAULT) -->
+            <div id="feelingsSection" class="hidden">
+              <div class="chip-row">
+                <button onclick="startFeeling('scared')">Feeling scared</button>
+                <button onclick="startFeeling('new friends')">Making friends</button>
+                <button onclick="startFeeling('left out')">Feeling left out</button>
+                <button onclick="startFeeling('worry')">Something worrying me</button>
+              </div>
+            </div>
+
+            <!-- WORLDS -->
+            <div class="worlds">
+              <h3>🌍 Magical Worlds</h3>
+              <div class="chip-row scroll">
+                <button onclick="startWorld('toyland')">Toyland</button>
+                <button onclick="startWorld('dragon')">Dragon</button>
+                <button onclick="startWorld('ocean')">Ocean</button>
+                <button onclick="startWorld('space')">Candy Planet</button>
               </div>
             </div>
 
@@ -465,7 +443,7 @@
     </div>
 
     <!-- Hero series/sibling stubs — kept for JS compatibility, never shown -->
-    <div id="pageHero" class="hidden" aria-hidden="true" style="display:none">
+    <div id="pageHero" class="hidden" aria-hidden="true">
       <input id="heroName" /><input id="heroAge" /><input id="heroIdea" />
       <select id="heroLength"><option value="medium" selected></option></select>
       <div id="heroSiblingsWrap"><div id="heroSiblings"></div></div>
@@ -547,7 +525,21 @@
             <button type="button" class="lang-btn lang-btn-sm" data-lang="hi">🇮🇳<span class="lang-en">Hindi</span></button>
             <button type="button" class="lang-btn lang-btn-sm" data-lang="ur">🇵🇰<span class="lang-en">Urdu</span></button>
           </div>
-          <p id="settingsLangStatus" class="hint" style="margin-top:10px"></p>
+          <p id="settingsLangStatus" class="hint mt-10"></p>
+        </div>
+
+        <div class="card">
+          <h2>Reading Experience</h2>
+
+          <label class="toggle-label">
+            <input type="checkbox" id="readingModeToggle" />
+            <span class="toggle-slider"></span>
+            Page-style reading
+          </label>
+
+          <p class="hint">
+            Reveal the story one section at a time for a book-like experience.
+          </p>
         </div>
 
         <div class="card safety-card">

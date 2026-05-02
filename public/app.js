@@ -1,94 +1,79 @@
 
-// Firebase imports
+// =============================================================================
+// 🔥 FIREBASE SETUP (MUST BE AT VERY TOP)
+// =============================================================================
+
+// ✅ CDN imports (correct for browser)
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import {
   getAuth,
   signInWithEmailAndPassword,
-  onAuthStateChanged
+  onAuthStateChanged,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
+  signOut
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+import {
+  getFirestore,
+  doc,
+  getDoc,
+  updateDoc
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
-// Firebase config
+// =============================================================================
+// ✅ YOUR REAL FIREBASE CONFIG (YOU ALREADY HAVE THIS)
+// =============================================================================
+
 const firebaseConfig = {
-  apiKey: "YOUR_KEY",
-  authDomain: "YOUR_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyAoNxcJTiqah_Ig_1THapgWIYY3Y-nPWj8",
+  authDomain: "dreamtalez.firebaseapp.com",
+  projectId: "dreamtalez",
+  storageBucket: "dreamtalez.appspot.com",
+  messagingSenderId: "219771634733",
+  appId: "1:219771634733:web:007c920a5442a4d19c24a4"
 };
 
-// Initialize Firebase FIRST
+console.log("🔥 Firebase config loaded:", firebaseConfig);
+
+// =============================================================================
+// ✅ INITIALIZE FIREBASE (NOTHING ABOVE CAN USE AUTH)
+// =============================================================================
+
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+const db = getFirestore(app);
 
-// ✅ NOTHING ABOVE THIS USES auth
+let isGenerating = false;
 
-// 4. NOW SAFE TO USE auth
-onAuthStateChanged(auth, async (user) => {
-  currentUser = user;
-  console.log("AUTH STATE:", user);
-  if (user) {
-    // Show welcome screen if needed (returns true if shown)
-    if (await showWelcomeScreenIfNeeded(user)) return;
-    const { isNewUser } = await loadUserProfile();
-    if (isNewUser) {
-      // Show one-time intro on very first launch, then language picker
-      const introSeen = localStorage.getItem("dt-intro-seen") === "1";
-      if (!introSeen) {
-        navigateTo("intro");
-      } else {
-        navigateTo("language");
-      }
-      return;
-    }
-    await loadChildren();
-    navigateTo("home");
-    checkReturnUser();
-    trackEvent("app_opened");
-    // Second-session retention metric — fires once per user on their return visit
-    if (localStorage.getItem("dt-first-story") && !localStorage.getItem("dt-returned-once")) {
-      localStorage.setItem("dt-returned-once", "1");
-      trackEvent("user_returned");
-    }
-    // Start background cache fill once children are loaded
-    if (window.StoryCache) {
-      window.StoryCache.pruneOldEntries();
-      window.StoryCache.scheduleBackgroundFill(
-        cachedChildren,
-        () => currentUser?.getIdToken(),
-        getCurrentLanguage()
-      );
-      window.StoryCache.updateOfflineIndicator();
-      // Wire up bonus story hook + drain any cached stories from prior session
-      setTimeout(() => autoSaveCachedToLibrary(), 30000);
-    }
-    // Refresh teddy state
-    refreshTeddyState();
-  } else {
-    currentUser = null;
-    cachedChildren = [];
-    cachedStreaks = {};
-    cachedLibrary = [];
-    cachedSeries = {};
-    cachedTrial = null;
-    navigateTo('auth');
-  }
-});
+// Optional (helps debugging in console)
+window.auth = auth;
 
-// ...existing code...
 
-window.login = async function () {
+
+// =============================================================================
+// ✅ SIGNUP (optional but useful)
+// =============================================================================
+
+window.signup = async function () {
   const email = document.getElementById("email")?.value;
   const password = document.getElementById("password")?.value;
-  
-  console.log("LOGIN CLICKED", { email, password });
-  
+
   try {
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    console.log("Logged in:", userCredential.user);
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    console.log("✅ Signed up:", userCredential.user);
   } catch (err) {
-    console.error("Login error:", err.message);
-    alert("Login failed: " + err.message);
+    alert(err.message);
   }
 };
+
+// =============================================================================
+// ✅ LOGOUT
+// =============================================================================
+
+window.logout = async function () {
+  await signOut(auth);
+};
+
 // =============================================================================
 // Welcome Screen Logic
 // =============================================================================
@@ -210,6 +195,25 @@ async function refreshTeddyState(animated = false) {
 document.addEventListener('DOMContentLoaded', () => {
   const dyslexiaToggle = document.getElementById('dyslexiaToggle');
   const neuroToggle = document.getElementById('neuroToggle');
+  const readingToggle = document.getElementById("readingModeToggle");
+
+  if (!localStorage.getItem("dt-reading-mode")) {
+    localStorage.setItem("dt-reading-mode", "auto");
+  }
+
+  // =============================
+  // READING MODE TOGGLE
+  // =============================
+  if (readingToggle) {
+    // Load saved state
+    readingToggle.checked = getReadingMode() === "tap";
+
+    // Save on change
+    readingToggle.addEventListener("change", () => {
+      setReadingMode(readingToggle.checked ? "tap" : "auto");
+    });
+  }
+
   // Load saved state
   if (localStorage.getItem('dt-dyslexia') === '1') {
     document.body.classList.add('dyslexia');
@@ -309,17 +313,63 @@ function submitCustomStoryIdea(idea, type) {
     window.handleGenerate && handleGenerate({ mode: 'custom', idea });
   }
 }
+
+window.toggleFeelings = function () {
+  const section = document.getElementById("feelingsSection");
+  if (!section) return;
+  section.classList.toggle("hidden");
+};
+
+window.startCustomStory = function () {
+  const idea = document.getElementById("storyInput")?.value?.trim();
+
+  if (!idea) {
+    alert("Type something magical first ✨");
+    return;
+  }
+
+  handleGenerate({
+    mode: "custom",
+    idea
+  });
+};
+
+window.startSleepyStory = function () {
+  handleGenerate({
+    mode: "sleepy"
+  });
+};
+
+window.startAdventureStory = function () {
+  handleGenerate({
+    mode: "long-surprise"
+  });
+};
+
+window.startFeeling = function (situation) {
+  handleGenerate({
+    mode: "therapeutic",
+    situation
+  });
+};
+
+window.startWorld = function (world) {
+  handleGenerate({
+    mode: "custom",
+    idea: world
+  });
+};
+
 // Production-quality bedtime story generator
 // =============================================================================
 
-window.onerror = function (msg, url, line, col, error) {
-  console.error("Global error:", msg, error);
-};
-window.addEventListener("error", (e) => {
-  console.error("[DreamTalez top-level error]", e.error || e.message);
+window.addEventListener("error", () => {
+  hideLoading();
+  setGeneratingState(false);
 });
-window.addEventListener("unhandledrejection", (e) => {
-  console.error("[DreamTalez unhandled rejection]", e.reason);
+window.addEventListener("unhandledrejection", () => {
+  hideLoading();
+  setGeneratingState(false);
 });
 
 // =============================================================================
@@ -5987,7 +6037,7 @@ function showSampleStory() {
 
   isShowingSample = true;
   readingTitle.textContent = SAMPLE_STORY.title;
-  readingText.textContent = SAMPLE_STORY.text;
+  renderStoryWithReveal(SAMPLE_STORY.text, getReadingMode());
   if (saveBtn) saveBtn.classList.add("hidden");
 
   // Apply saved reading preferences
@@ -7653,7 +7703,7 @@ function enterReadingMode() {
   if (!readingMode || !readingTitle || !readingText) return;
 
   readingTitle.textContent = currentStoryTitle || t("your_story");
-  readingText.textContent = formatStory(currentStoryText);
+  renderStoryWithReveal(formatStory(currentStoryText), getReadingMode());
 
   // Show save button only for AI-generated Hero stories
   if (saveBtn) {
@@ -7821,7 +7871,8 @@ document.addEventListener("visibilitychange", async () => {
       const title = applyDialectToText(data.title || "Your Story", getCurrentLanguage());
       const child = getSelectedChild();
       displayStory(title, story, { childName: child?.name, mode: currentStoryMode || "random" });
-      hideLoading();
+      document.body.style.overflow = "";
+      document.getElementById("loadingOverlay")?.classList.add("hidden");
       generationInProgress = false;
       enterReadingMode();
     }
@@ -8368,49 +8419,166 @@ async function deleteChildByIndex(index) {
 // UI — Loading state
 // =============================================================================
 
-let _loadingStepInterval = null;
+function showLoading(message = "✨ Creating your story...") {
+  const overlay = document.getElementById("loadingOverlay");
+  const text = document.querySelector(".loading-text");
 
-function showLoading() {
-  const overlay = $("loadingOverlay");
-  if (overlay) overlay.classList.remove("hidden");
+  if (text) text.textContent = message;
 
-  const stepEl = $("loadingStep");
-  if (!stepEl) return;
-
-  const child = getSelectedChild();
-  const name = child?.name && child.name !== "a little one" ? child.name : "";
-  const isFirst = !localStorage.getItem("dt-first-story") && name;
-
-  const steps = isFirst
-    ? [t("loading_first_story", { name }), t("loading_step_3"), t("loading_step_4")]
-    : [
-        t("loading_step_1"),
-        t("loading_step_2", { name: name || "your child" }),
-        t("loading_step_3"),
-        t("loading_step_4"),
-      ];
-
-  let stepIndex = 0;
-  stepEl.style.opacity = "1";
-  stepEl.textContent = steps[0];
-
-  if (_loadingStepInterval) clearInterval(_loadingStepInterval);
-  _loadingStepInterval = setInterval(() => {
-    stepIndex = (stepIndex + 1) % steps.length;
-    stepEl.style.opacity = "0";
-    setTimeout(() => {
-      stepEl.textContent = steps[stepIndex];
-      stepEl.style.opacity = "1";
-    }, 300);
-  }, 3000);
+  document.body.style.overflow = "hidden";
+  overlay?.classList.remove("hidden");
 }
 
 function hideLoading() {
-  const overlay = $("loadingOverlay");
-  if (overlay) overlay.classList.add("hidden");
-  if (_loadingStepInterval) { clearInterval(_loadingStepInterval); _loadingStepInterval = null; }
-  const stepEl = $("loadingStep");
-  if (stepEl) stepEl.textContent = "";
+  const overlay = document.getElementById("loadingOverlay");
+
+  document.body.style.overflow = "";
+  overlay?.classList.add("hidden");
+}
+
+function setGeneratingState(state) {
+  isGenerating = state;
+
+  document.querySelectorAll(".btn, .story-card, .quick-card").forEach((el) => {
+    el.style.pointerEvents = state ? "none" : "";
+    el.style.opacity = state ? "0.6" : "";
+  });
+}
+
+// =============================
+// STORY REVEAL SYSTEM
+// =============================
+
+let revealController = {
+  mode: "auto", // "auto" or "tap"
+  delay: 450, // ms between paragraphs
+  isRevealing: false,
+  queue: [],
+  index: 0,
+  elements: [],
+};
+
+function splitIntoParagraphs(text) {
+  return String(text || "")
+    .split(/\n+/)
+    .map((p) => p.trim())
+    .filter(Boolean);
+}
+
+function createParagraphElement(text) {
+  const p = document.createElement("p");
+  p.className = "story-paragraph hidden";
+  p.textContent = text;
+  return p;
+}
+
+function clearStoryContainers() {
+  const output = document.getElementById("storyOutput");
+  const reading = document.getElementById("readingText");
+
+  if (output) output.innerHTML = "";
+  if (reading) reading.innerHTML = "";
+}
+
+// =============================
+// READING MODE (PERSISTED)
+// =============================
+
+function getReadingMode() {
+  return localStorage.getItem("dt-reading-mode") || "auto";
+}
+
+function setReadingMode(mode) {
+  localStorage.setItem("dt-reading-mode", mode);
+}
+
+function renderStoryWithReveal(text, mode = "auto") {
+  const paragraphs = splitIntoParagraphs(text);
+
+  revealController.mode = mode;
+  revealController.queue = paragraphs;
+  revealController.index = 0;
+  revealController.isRevealing = true;
+
+  clearStoryContainers();
+
+  const output = document.getElementById("storyOutput");
+  const reading = document.getElementById("readingText");
+
+  if (!output || !reading) return;
+
+  // clone to both views
+  revealController.elements = paragraphs.map((p) => {
+    return {
+      output: createParagraphElement(p),
+      reading: createParagraphElement(p),
+    };
+  });
+
+  revealController.elements.forEach((el) => {
+    output.appendChild(el.output);
+    reading.appendChild(el.reading);
+  });
+
+  if (mode === "auto") {
+    revealNextAuto();
+  } else {
+    showNextTap();
+  }
+}
+
+// AUTO MODE (default)
+function revealNextAuto() {
+  if (!revealController.isRevealing) return;
+
+  const i = revealController.index;
+  if (i >= revealController.elements.length) {
+    revealController.isRevealing = false;
+    return;
+  }
+
+  const el = revealController.elements[i];
+
+  el.output.classList.remove("hidden");
+  el.output.classList.add("visible");
+
+  el.reading.classList.remove("hidden");
+  el.reading.classList.add("visible");
+
+  revealController.index++;
+
+  setTimeout(revealNextAuto, revealController.delay);
+}
+
+// TAP MODE (optional upgrade)
+function showNextTap() {
+  const btn = document.createElement("button");
+  btn.className = "tap-next-btn";
+  btn.textContent = "Tap to continue";
+
+  btn.onclick = () => {
+    const i = revealController.index;
+    if (i >= revealController.elements.length) {
+      btn.remove();
+      return;
+    }
+
+    const el = revealController.elements[i];
+
+    el.output.classList.remove("hidden");
+    el.output.classList.add("visible");
+
+    el.reading.classList.remove("hidden");
+    el.reading.classList.add("visible");
+
+    revealController.index++;
+
+    if (revealController.index >= revealController.elements.length) {
+      btn.remove();
+    }
+  };
+
+  document.getElementById("storyOutput")?.appendChild(btn);
 }
 
 // =============================================================================
@@ -8430,8 +8598,7 @@ function displayStory(title, text, context = {}) {
 
   if (storyTitle) storyTitle.textContent = title;
 
-  // FIX: Use textContent instead of innerHTML to prevent XSS
-  if (storyOutput) storyOutput.textContent = formatStory(text);
+  if (storyOutput) renderStoryWithReveal(formatStory(text), getReadingMode());
 
   // Only offer opt-in save for Quick Stories (Hero stories auto-save).
   // Error-ish placeholders ("Oops!", the empty-output message) are not savable.
@@ -8519,25 +8686,24 @@ async function logout() {
   }
 }
 
-async function resetPassword() {
-  const email = ($("email")?.value || "").trim();
+window.resetPassword = async function () {
+  const email = document.getElementById("email")?.value;
+
+  console.log("RESET EMAIL:", email);
+
   if (!email) {
-    alert(t("alert_reset_email"));
-    $("email")?.focus();
+    alert("Enter your email first");
     return;
   }
+
   try {
     await sendPasswordResetEmail(auth, email);
-    alert(t("alert_reset_sent", { email }));
-  } catch (error) {
-    console.error("Password reset failed:", error);
-    const message =
-      error.code === "auth/invalid-email" ? "Please enter a valid email address." :
-      error.code === "auth/user-not-found" ? "No account found with this email." :
-      "We couldn't send a reset email. Please try again.";
-    alert(message);
+    alert("Password reset email sent ✉️");
+  } catch (err) {
+    console.error("RESET ERROR:", err.code, err.message);
+    alert(err.message);
   }
-}
+};
 
 async function deleteAccount() {
   if (!currentUser) {
@@ -8632,26 +8798,27 @@ async function saveChild() {
     return;
   }
 
-  const name = ($("childName")?.value || "").trim();
-  const age = ($("childAge")?.value || "").trim();
-  const gender = ($("childGender")?.value || "neutral").trim().toLowerCase();
-  const interestsInput = ($("childInterests")?.value || "").trim();
+  const name = document.getElementById("childName")?.value.trim() || "";
+  const ageInput = document.getElementById("childAge")?.value.trim() || "";
+  const gender = (document.getElementById("childGender")?.value || "neutral").trim().toLowerCase();
+  const interestsInput = document.getElementById("childInterests")?.value.trim() || "";
+  const appearance = (document.getElementById("childAppearance")?.value || "").trim().slice(0, 200);
+  const pet = (document.getElementById("childPet")?.value || "").trim().slice(0, 60);
+  const bestFriend = (document.getElementById("childBestFriend")?.value || "").trim().slice(0, 60);
+  const favToy = (document.getElementById("childFavToy")?.value || "").trim().slice(0, 60);
+
   const interests = interestsInput
     .split(",")
     .map((i) => i.trim().toLowerCase())
     .filter(Boolean);
-  const appearance = ($("childAppearance")?.value || "").trim().slice(0, 200);
-  const pet = ($("childPet")?.value || "").trim().slice(0, 60) || undefined;
-  const bestFriend = ($("childBestFriend")?.value || "").trim().slice(0, 60) || undefined;
-  const favToy = ($("childFavToy")?.value || "").trim().slice(0, 60) || undefined;
+  const safeInterests = interests.length ? interests : ["fun adventures"];
+  const ageNumber = Number(ageInput);
+  const age = ageInput && !Number.isNaN(ageNumber) && ageNumber >= 1 && ageNumber <= 18
+    ? String(ageNumber)
+    : null;
 
   if (!name) {
-    alert(t("alert_save_child_name"));
-    return;
-  }
-
-  if (!age || isNaN(age) || age < 1 || age > 18) {
-    alert(t("alert_save_child_age"));
+    alert("Please enter your child's name");
     return;
   }
 
@@ -8662,7 +8829,18 @@ async function saveChild() {
     return;
   }
 
-  const nextRecord = { name, age, gender, interests, appearance, ...(pet && { pet }), ...(bestFriend && { bestFriend }), ...(favToy && { favToy }) };
+  const nextRecord = {
+    name,
+    age,
+    gender: gender || "neutral",
+    interests: safeInterests,
+    appearance: appearance || "",
+    pet: pet || "",
+    bestFriend: bestFriend || "",
+    favToy: favToy || "",
+  };
+
+  console.log("Saving child:", nextRecord);
 
   try {
     const userRef = doc(db, "users", currentUser.uid);
@@ -9067,7 +9245,36 @@ function showSafetyMessage() {
   setTimeout(() => toast.remove(), 4000);
 }
 
-async function handleGenerate(mode) {
+async function handleGenerate(input) {
+  const startTime = Date.now();
+
+  let mode = typeof input === "string" ? input : input?.mode;
+  let idea = input?.idea || "";
+  let situation = input?.situation || "";
+
+  if (isGenerating) return;
+  setGeneratingState(true);
+
+  if (mode === "sleepy") {
+    idea = idea || "a calm bedtime story";
+  }
+
+  if (mode === "long-surprise") {
+    idea = idea || "a magical adventure";
+  }
+
+  if (mode === "sleepy") {
+    showLoading("🌙 Creating a calm bedtime story...");
+  } else if (mode === "therapeutic") {
+    showLoading("❤️ Creating a gentle story...");
+  } else {
+    showLoading("✨ Creating your story...");
+  }
+
+  try {
+
+  console.log("Generating:", { mode, idea, situation });
+
   const storyOutput = $("storyOutput");
   if (!storyOutput) return;
 
@@ -9088,16 +9295,16 @@ async function handleGenerate(mode) {
   let buttonId;
 
   // Support new custom/therapeutic modes from Custom Story screen
-  if (typeof mode === 'object' && mode !== null) {
-    // { mode: 'custom', idea } or { mode: 'therapeutic', situation }
+  if (mode === "custom" || mode === "therapeutic") {
+    // { mode: "custom", idea } or { mode: "therapeutic", situation }
     const child = getSelectedChild();
     if (!child.name || child.name === "a little one") {
       alert(t("alert_add_child"));
       generationInProgress = false;
       return;
     }
-    if (mode.mode === 'custom') {
-      const rawIdea = (mode.idea || '').trim();
+    if (mode === "custom") {
+      const rawIdea = (idea || "").trim();
       if (!rawIdea) {
         alert(t("alert_add_idea"));
         generationInProgress = false;
@@ -9118,7 +9325,8 @@ async function handleGenerate(mode) {
         age: String(child.age || 5),
         interests,
         length: "medium",
-        mode: "hero",
+        mode: "custom",
+        storyType: "custom",
         language: getCurrentLanguage(), dialect: cachedDialect,
         customIdea: rawIdea,
         seriesContext: seriesContext || undefined,
@@ -9126,14 +9334,14 @@ async function handleGenerate(mode) {
         personalWorld: buildPersonalWorld(child),
       };
       buttonId = null; // No button highlight for instant cards
-    } else if (mode.mode === 'therapeutic') {
-      const situation = (mode.situation || '').trim();
-      if (!situation) {
+    } else if (mode === "therapeutic") {
+      const therapeuticSituation = (situation || "").trim();
+      if (!therapeuticSituation) {
         alert("Please enter a situation or feeling.");
         generationInProgress = false;
         return;
       }
-      if (!isClientInputSafe(situation)) {
+      if (!isClientInputSafe(therapeuticSituation)) {
         showSafetyMessage();
         generationInProgress = false;
         return;
@@ -9141,7 +9349,7 @@ async function handleGenerate(mode) {
       // For therapeutic stories, pass a special flag and the situation
       const baseInterests = child.interests?.length
         ? child.interests.join(", ")
-        : situation;
+        : therapeuticSituation;
       const interests = enrichInterestsWithContext(baseInterests, child);
       payload = {
         name: formatName(child.name),
@@ -9149,8 +9357,9 @@ async function handleGenerate(mode) {
         interests,
         length: "medium",
         mode: "therapeutic",
+        storyType: "custom",
         language: getCurrentLanguage(), dialect: cachedDialect,
-        therapeuticSituation: situation,
+        therapeuticSituation,
         appearance: child.appearance || undefined,
         personalWorld: buildPersonalWorld(child),
       };
@@ -9196,6 +9405,7 @@ async function handleGenerate(mode) {
       interests,
       length: "medium",
       mode: "today",
+      storyType: "quick",
       language: getCurrentLanguage(), dialect: cachedDialect,
       dayBeats,
       dayMood: dayMood || undefined,
@@ -9203,7 +9413,7 @@ async function handleGenerate(mode) {
       personalWorld: buildPersonalWorld(child),
     };
     buttonId = "generateTodayBtn";
-  } else if (mode === "medium-surprise" || mode === "long-surprise") {
+  } else if (mode === "sleepy" || mode === "medium-surprise" || mode === "long-surprise") {
     // ---- Surprise Me: random idea, child from profile ----
     const child = getSelectedChild();
     if (!child.name || child.name === "a little one") {
@@ -9233,9 +9443,6 @@ async function handleGenerate(mode) {
     const interests = enrichInterestsWithContext(baseInterests, child);
     const ageGroup = Math.round((parseInt(child.age) || 5) / 2) * 2;
 
-    // Show loading immediately so the user sees instant feedback
-    showLoading();
-
     // Race the Firestore inspiration call against a 1.5s cap so it never
     // delays the main generation fetch — empty array is a fine fallback.
     const globalIdeas = await Promise.race([
@@ -9248,13 +9455,14 @@ async function handleGenerate(mode) {
       age: String(child.age || 5),
       interests,
       length: storyLength,
-      mode: "random",
+      mode: mode === "sleepy" ? "sleepy" : mode === "long-surprise" ? "long-surprise" : "random",
+      storyType: mode === "sleepy" ? "sleepy" : mode === "long-surprise" ? "magic" : "quick",
       language: getCurrentLanguage(), dialect: cachedDialect,
       appearance: child.appearance || undefined,
       globalInspiration: globalIdeas.length ? globalIdeas : undefined,
       personalWorld: buildPersonalWorld(child),
     };
-    buttonId = mode === "long-surprise" ? "surpriseLongBtn" : "surpriseMediumBtn";
+    buttonId = mode === "long-surprise" ? "surpriseLongBtn" : null;
   } else if (mode === "create") {
     // ---- My Idea: parent's idea, child from profile ----
     const child = getSelectedChild();
@@ -9287,7 +9495,8 @@ async function handleGenerate(mode) {
       age: String(child.age || 5),
       interests,
       length: storyLength,
-      mode: "hero",
+      mode: "custom",
+      storyType: "custom",
       language: getCurrentLanguage(), dialect: cachedDialect,
       customIdea: rawIdea,
       seriesContext: seriesContext || undefined,
@@ -9304,10 +9513,6 @@ async function handleGenerate(mode) {
   const button = $(buttonId);
   const originalText = button?.textContent || "";
 
-  // Only call showLoading here if it wasn't already called above (medium/long-surprise call it early)
-  if (!document.getElementById("loadingOverlay") || document.getElementById("loadingOverlay").classList.contains("hidden")) {
-    showLoading();
-  }
   if (button) {
     button.disabled = true;
     button.textContent = t("creating_btn");
@@ -9333,7 +9538,6 @@ async function handleGenerate(mode) {
     if (!initResponse.ok) {
       const errorData = await initResponse.json().catch(() => ({}));
       if (errorData?.unsafe) {
-        hideLoading();
         if (button) { button.disabled = false; button.textContent = originalText; }
         generationInProgress = false;
         showSafetyMessage();
@@ -9344,7 +9548,6 @@ async function handleGenerate(mode) {
         teddyCount = 0;
         updateTeddyCounterUI();
         alert("All your teddies have been used tonight! Come back tomorrow or add more for 99p 🧸");
-        hideLoading();
         if (button) { button.disabled = false; button.textContent = originalText; }
         generationInProgress = false;
         return;
@@ -9434,7 +9637,6 @@ async function handleGenerate(mode) {
     localStorage.removeItem("dt-pending-job");
 
     if (error?.name === "AbortError") {
-      hideLoading();
       if (button) { button.disabled = false; button.textContent = originalText; }
       generationInProgress = false;
       return;
@@ -9449,7 +9651,6 @@ async function handleGenerate(mode) {
       banner.onclick = () => banner.remove();
       document.body.prepend(banner);
       setTimeout(() => banner.remove(), 8000);
-      hideLoading();
       if (button) { button.disabled = false; button.textContent = originalText; }
       generationInProgress = false;
       return;
@@ -9530,7 +9731,6 @@ async function handleGenerate(mode) {
     // Show a full-screen offline message in their language instead.
     const fallbackLang = getCurrentLanguage();
     if (!["en-GB", "en-US"].includes(fallbackLang)) {
-      hideLoading();
       if (button) { button.disabled = false; button.textContent = originalText; }
       generationInProgress = false;
       showOfflineNoConnection();
@@ -9620,12 +9820,25 @@ async function handleGenerate(mode) {
       setTimeout(() => preloadHotStory(preloadChild, preloadLen), 4000);
     }
   } finally {
-    hideLoading();
     if (button) {
       button.disabled = false;
       button.textContent = originalText;
     }
     generationInProgress = false;
+  }
+  } catch (err) {
+    console.error("Generation failed:", err);
+    alert("Something went wrong. Please try again.");
+  } finally {
+    const elapsed = Date.now() - startTime;
+    const minDuration = 700;
+
+    if (elapsed < minDuration) {
+      await new Promise((r) => setTimeout(r, minDuration - elapsed));
+    }
+
+    hideLoading();
+    setGeneratingState(false);
   }
 }
 
@@ -9721,7 +9934,22 @@ onAuthStateChanged(auth, async (user) => {
     if (window.StoryCache) {
       window.StoryCache.pruneOldEntries();
       window.StoryCache.scheduleBackgroundFill(
-
+        cachedChildren,
+        () => currentUser?.getIdToken(),
+        getCurrentLanguage()
+      );
+    }
+    refreshTeddyState();
+  } else {
+    currentUser = null;
+    cachedChildren = [];
+    cachedStreaks = {};
+    cachedLibrary = [];
+    cachedSeries = {};
+    cachedTrial = null;
+    navigateTo('auth');
+  }
+});
 
 // Sample story button (landing page, no-signup demo)
 const sampleBtn = $("sampleStoryBtn");
@@ -9764,7 +9992,7 @@ document.querySelector(".card-teal")?.addEventListener("click", () => openCreate
 window.signup = signup;
 window.login = login;
 window.logout = logout;
-window.resetPassword = resetPassword;
+// window.resetPassword is assigned directly as a global function above
 window.deleteAccount = deleteAccount;
 window.saveChild = saveChild;
 window.cancelEditChild = cancelEditChild;
@@ -9857,7 +10085,8 @@ document.addEventListener("visibilitychange", () => {
   const elapsed = Date.now() - _generationStartedAt;
   if (elapsed > 120000) {
     generationInProgress = false;
-    hideLoading();
+    document.body.style.overflow = "";
+    document.getElementById("loadingOverlay")?.classList.add("hidden");
     // Small soft message so the parent knows what happened — no navigation
     const toast = document.createElement("div");
     toast.style.cssText =

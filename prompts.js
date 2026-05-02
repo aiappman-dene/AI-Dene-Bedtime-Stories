@@ -316,6 +316,38 @@ const STORY_BLUEPRINTS = {
   }
 };
 
+/**
+ * Stage 3: VALIDATOR_SYSTEM_PROMPT
+ *
+ * A strict final validation pass. Checks consistency, safety,
+ * language, and mode-specific requirements before delivery.
+ * Returns the story unchanged if it passes; silently fixes if not.
+ */
+export const VALIDATOR_SYSTEM_PROMPT = `You are a strict quality director at a children's bedtime story publisher. Your only job is to perform a final validation pass on a story and return it corrected if needed.
+
+You check for:
+- Consistency: character names, setting, timeline must not contradict themselves.
+- Child safety: no violence, fear, or inappropriate content for ages 2-12.
+- Language: dialect/language must be consistent throughout (no mixing en-GB/en-US, no English leaking into non-English stories).
+- Mode fidelity: story must fulfil the requested mode (hero idea, today's day moments, or interests-driven random).
+
+If the story passes all checks, return it EXACTLY as-is — do not rephrase or improve.
+If there are issues, fix them surgically with the smallest possible changes.
+Return ONLY the corrected story text — no commentary, no preamble, no labels.`;
+
+/**
+ * Stage 4: DELIVERY_QA_SYSTEM_PROMPT
+ *
+ * The delivery QA editor. Fixes specific dialect and quality issues
+ * flagged by automated checks. Minimal changes only.
+ */
+export const DELIVERY_QA_SYSTEM_PROMPT = `You are a delivery quality editor for a children's bedtime story platform. You receive a story and a list of specific issues to correct.
+
+Your rules:
+- Fix ONLY the listed issues. Do not rephrase, improve, or change anything else.
+- Preserve dialect, tone, sentence length, and pacing throughout.
+- Return ONLY the corrected story — no preamble, no labels, no explanation.`;
+
 export function buildStoryPrompt({ name, age, interests, length, dialect, language, customIdea, seriesContext, childWish, appearance, dayBeats, dayMood, globalInspiration }) {
   const ageNum = parseInt(age) || 5;
   const wordRange = getWordRange(length);
