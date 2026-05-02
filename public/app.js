@@ -8481,6 +8481,27 @@ function clearStoryContainers() {
 }
 
 // =============================
+// GOLD: HUMAN TIMING ENGINE
+// =============================
+
+function getRevealDelay(mode) {
+  const base = {
+    sleepy: 520,
+    adventure: 360,
+    therapeutic: 420,
+    custom: 400,
+  };
+
+  const variation = Math.random() * 180;
+  return (base[mode] || 400) + variation;
+}
+
+function getRevealMode(mode) {
+  if (mode === "long-surprise") return "adventure";
+  return mode || "custom";
+}
+
+// =============================
 // READING MODE (PERSISTED)
 // =============================
 
@@ -8528,16 +8549,16 @@ function renderStoryWithReveal(text, mode = "auto") {
 }
 
 // AUTO MODE (default)
-function revealNextAuto() {
+async function revealNextAuto(paragraphs = revealController.elements, container = null, mode = currentStoryMode) {
   if (!revealController.isRevealing) return;
 
   const i = revealController.index;
-  if (i >= revealController.elements.length) {
+  if (i >= paragraphs.length) {
     revealController.isRevealing = false;
     return;
   }
 
-  const el = revealController.elements[i];
+  const el = paragraphs[i];
 
   el.output.classList.remove("hidden");
   el.output.classList.add("visible");
@@ -8547,7 +8568,9 @@ function revealNextAuto() {
 
   revealController.index++;
 
-  setTimeout(revealNextAuto, revealController.delay);
+  await new Promise((r) => setTimeout(r, getRevealDelay(getRevealMode(mode))));
+  if (!revealController.isRevealing) return;
+  return revealNextAuto(paragraphs, container, mode);
 }
 
 // TAP MODE (optional upgrade)
@@ -9245,6 +9268,14 @@ function showSafetyMessage() {
   setTimeout(() => toast.remove(), 4000);
 }
 
+function applyModeUI(mode) {
+  document.body.classList.remove("mode-sleepy", "mode-adventure", "mode-feelings");
+
+  if (mode === "sleepy") document.body.classList.add("mode-sleepy");
+  if (mode === "long-surprise") document.body.classList.add("mode-adventure");
+  if (mode === "therapeutic") document.body.classList.add("mode-feelings");
+}
+
 async function handleGenerate(input) {
   const startTime = Date.now();
 
@@ -9254,6 +9285,8 @@ async function handleGenerate(input) {
 
   if (isGenerating) return;
   setGeneratingState(true);
+
+  applyModeUI(mode);
 
   if (mode === "sleepy") {
     idea = idea || "a calm bedtime story";
@@ -10123,4 +10156,31 @@ if (wizardAgeInput) {
     const btn = $("wizardNext2");
     if (btn) btn.disabled = !(age >= 1 && age <= 18 && genderSelected);
   });
+}
+
+// =============================================================================
+// Production performance hooks
+// =============================================================================
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {
+      // Non-critical for core UX
+    });
+  });
+}
+
+function runNonCriticalWork() {
+  if (typeof window.initAnalytics === "function") {
+    window.initAnalytics();
+  }
+  if (typeof window.initBackgroundCache === "function") {
+    window.initBackgroundCache();
+  }
+}
+
+if ("requestIdleCallback" in window) {
+  requestIdleCallback(runNonCriticalWork, { timeout: 2000 });
+} else {
+  setTimeout(runNonCriticalWork, 2000);
 }

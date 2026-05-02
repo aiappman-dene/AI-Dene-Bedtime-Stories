@@ -31,6 +31,7 @@ import express from "express";
 import rateLimit from "express-rate-limit";
 import cors from "cors";
 import helmet from "helmet";
+import compression from "compression";
 import { applicationDefault, cert, getApps, initializeApp as initializeAdminApp } from "firebase-admin/app";
 import { getAuth as getAdminAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
@@ -786,6 +787,7 @@ app.use(
 
 // Request size limit
 app.use(express.json({ limit: "10kb" }));
+app.use(compression());
 
 // CORS — scoped to API routes only.
 // Applying CORS globally blocks same-origin static assets (app.js, CSS, fonts)
@@ -806,6 +808,18 @@ const polishLimiter = buildAiLimiter({
 // Request logging
 app.use((req, res, next) => {
   logEvent(`${req.method} ${req.url} from ${req.ip}`);
+  next();
+});
+
+// =============================
+// PRODUCTION CACHING HEADERS
+// =============================
+app.use((req, res, next) => {
+  if (req.url.match(/\.(js|css|png|jpg|jpeg|webp|svg)$/)) {
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+  } else {
+    res.setHeader("Cache-Control", "no-cache");
+  }
   next();
 });
 

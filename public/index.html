@@ -8,10 +8,32 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>DreamTalez — Magical Bedtime Stories</title>
+  <style id="critical-css">
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f8fafc;
+    }
+
+    .hero {
+      min-height: 60vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .loading-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.4);
+    }
+  </style>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Lexend:wght@400;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/style.css?v=20260419a" />
+  <link rel="preload" href="/style.css?v=20260419a" as="style" onload="this.rel='stylesheet'" />
+  <noscript><link rel="stylesheet" href="/style.css?v=20260419a"></noscript>
+  <link rel="preload" href="/app.js?v=20260420e" as="script" />
   <script type="module" src="/i18n.js"></script>
   <script src="/consent.js" defer></script>
 </head>
@@ -320,7 +342,7 @@
 
             <!-- WORLDS -->
             <div class="worlds">
-              <h3>🌍 Magical Worlds</h3>
+              <h3>🌍 Magical Worlds <span class="worlds-note">(for example)</span></h3>
               <div class="chip-row scroll">
                 <button onclick="startWorld('toyland')">Toyland</button>
                 <button onclick="startWorld('dragon')">Dragon</button>
@@ -845,7 +867,7 @@
     </div>
   </div>
 
-  <script src="/story-cache.js"></script>
-  <script type="module" src="/app.js?v=20260420e"></script>
+  <script src="/story-cache.js" defer></script>
+  <script type="module" src="/app.js?v=20260420e" defer></script>
 </body>
 </html>
