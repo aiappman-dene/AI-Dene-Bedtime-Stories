@@ -10397,7 +10397,7 @@ window.handleSubscribe = handleSubscribe;
 window.showUpsell = showUpsell;
 window.buyOneStory = () => handleSubscribe("oneoff");
 window.buyOneStoryFromAuth = () => {
-  handleSubscribe("oneoff");
+  openGuestOneoffPrompt("dev_test_oneoff");
 };
 window.buyPremium = () => handleSubscribe("subscription");
 window.buyPack   = () => handleSubscribe("pack");
