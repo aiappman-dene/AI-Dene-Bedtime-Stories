@@ -6404,17 +6404,24 @@ function showPaymentComingSoon() {
 function showUpsell(childName) {
   const name = childName || "your little one";
   document.querySelector(".upsell-card")?.remove();
+
   const el = document.createElement("div");
-  el.className = "card upsell-card";
-  el.style.cssText = "position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9998;padding:32px;gap:12px;text-align:center;";
+  el.className = "upsell-card";
   el.innerHTML = `
-    <h2>✨ Tonight's story for ${name}</h2>
-    <p>Create a beautiful personalised bedtime story.</p>
-    <p>7–10 minutes · Calming · Magical · Starring your child.</p>
-    <button class="btn primary btn-lg" id="upsellOneOffBtn">Tonight's story — 99p</button>
-    <button class="btn secondary btn-lg" id="upsellSubBtn">Unlimited stories — £4.99/month</button>
-    <button class="btn ghost" id="upsellDismissBtn">Maybe later</button>
+    <div class="upsell-overlay" aria-hidden="true"></div>
+    <div class="upsell-panel card">
+      <div class="upsell-stars" aria-hidden="true">★ ✦ ★</div>
+      <h2 class="upsell-title">Tonight's story for ${name}</h2>
+      <p class="upsell-copy">A beautiful personalised bedtime story, crafted in your magical DreamTalez style.</p>
+      <p class="upsell-meta">7–10 minutes · Calming · Magical · Starring your child</p>
+      <div class="upsell-actions">
+        <button class="btn primary btn-lg" id="upsellOneOffBtn">Tonight's story — 99p</button>
+        <button class="btn secondary btn-lg" id="upsellSubBtn">Unlimited stories — £4.99/month</button>
+      </div>
+      <button class="btn ghost" id="upsellDismissBtn">Maybe later</button>
+    </div>
   `;
+
   document.body.appendChild(el);
   el.querySelector("#upsellOneOffBtn").addEventListener("click", () => { el.remove(); handleSubscribe("oneoff"); });
   el.querySelector("#upsellSubBtn").addEventListener("click", () => { el.remove(); handleSubscribe("subscription"); });
