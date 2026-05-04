@@ -511,6 +511,7 @@ let cachedTrial = null; // { startedAt, storiesUsed, status: "active"|"expired"|
 let cachedDialect = "en-GB";
 let cachedIsPremium = false;
 let cachedStoriesRemaining = 0;
+let guestOneoffSessionId = null;
 
 const TRIAL_DAYS = 7;
 const TRIAL_STORY_CAP = 7;
@@ -6253,7 +6254,7 @@ async function handleSubscribe(type = "subscription") {
     });
     const data = await res.json();
 
-    if (res.status === 401) {
+    if (res.status === 401 && type !== "oneoff") {
       showToast("Please log in or sign up first to buy your 99p story", "info");
       return;
     }
@@ -6272,6 +6273,120 @@ async function handleSubscribe(type = "subscription") {
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = originalText; }
   }
+}
+
+function getGuestCheckoutSessionFromUrl() {
+  const params = new URLSearchParams(window.location.search || "");
+  const paid = params.get("paid");
+  const cs = params.get("cs");
+  if (paid === "oneoff" && cs) return cs;
+  return null;
+}
+
+function showSoftPremiumUpsell(childName) {
+  const existing = document.getElementById("softUpsellCard");
+  if (existing) existing.remove();
+
+  const card = document.createElement("div");
+  card.id = "softUpsellCard";
+  card.style.cssText =
+    "position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:9999;" +
+    "background:#0f1a2e;color:#fff;border:1px solid rgba(255,255,255,0.18);border-radius:14px;" +
+    "padding:12px 14px;max-width:560px;width:calc(100% - 24px);box-shadow:0 10px 30px rgba(0,0,0,0.35);";
+  card.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+      <div style="font-size:13px;line-height:1.35;opacity:.95;">
+        Loved that${childName ? `, ${childName}` : ""}? Continue the magic with unlimited stories.
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button id="softUpsellClose" class="btn secondary" style="padding:8px 12px;">Maybe later</button>
+        <button id="softUpsellBuy" class="btn primary" style="padding:8px 12px;">&pound;4.99/month</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(card);
+  card.querySelector("#softUpsellClose")?.addEventListener("click", () => card.remove());
+  card.querySelector("#softUpsellBuy")?.addEventListener("click", () => {
+    card.remove();
+    handleSubscribe("subscription");
+  });
+}
+
+function openGuestOneoffPrompt(sessionId) {
+  if (!sessionId) return;
+  const existing = document.getElementById("guestOneoffModal");
+  if (existing) existing.remove();
+
+  const modal = document.createElement("div");
+  modal.id = "guestOneoffModal";
+  modal.style.cssText =
+    "position:fixed;inset:0;z-index:10000;background:rgba(3,7,18,0.65);display:flex;align-items:center;justify-content:center;padding:16px;";
+  modal.innerHTML = `
+    <div style="width:min(460px,100%);background:#fff;border-radius:16px;padding:18px;box-shadow:0 16px 40px rgba(0,0,0,0.35);">
+      <h3 style="margin:0 0 8px 0;color:#0f172a;">Payment confirmed</h3>
+      <p style="margin:0 0 14px 0;color:#334155;font-size:14px;">Tell us who tonight's story is for.</p>
+      <label style="display:block;font-size:12px;color:#475569;margin-bottom:6px;">Child's first name</label>
+      <input id="guestChildName" type="text" maxlength="50" placeholder="e.g. Sophia" style="width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;margin-bottom:12px;" />
+      <label style="display:block;font-size:12px;color:#475569;margin-bottom:6px;">Boy or girl?</label>
+      <select id="guestChildGender" style="width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;margin-bottom:14px;">
+        <option value="girl">Girl</option>
+        <option value="boy">Boy</option>
+        <option value="neutral">Other</option>
+      </select>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button id="guestOneoffLater" class="btn secondary" style="padding:8px 12px;">Later</button>
+        <button id="guestOneoffGenerate" class="btn primary" style="padding:8px 12px;">Generate story</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  modal.querySelector("#guestOneoffLater")?.addEventListener("click", () => modal.remove());
+  modal.querySelector("#guestOneoffGenerate")?.addEventListener("click", async () => {
+    const name = (modal.querySelector("#guestChildName")?.value || "").trim();
+    const gender = modal.querySelector("#guestChildGender")?.value || "neutral";
+    if (!name) {
+      showToast("Please add your child's first name", "info");
+      return;
+    }
+
+    try {
+      showLoading("Creating your story...");
+      const res = await fetchWithTimeout(`${API_BASE}/api/guest/generate-oneoff`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          checkoutSessionId: sessionId,
+          name,
+          gender,
+          language: getCurrentLanguage(),
+          dialect: cachedDialect,
+        }),
+      }, 90000);
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error || "Could not generate your one-off story.");
+      }
+
+      modal.remove();
+      localStorage.removeItem("dt-guest-oneoff-cs");
+      guestOneoffSessionId = null;
+
+      const story = typeof data?.story === "string" && data.story.trim()
+        ? applyDialectToText(data.story, getCurrentLanguage())
+        : "No story was returned. Please try again.";
+      const title = applyDialectToText(data?.title || `${name}'s Bedtime Story`, getCurrentLanguage());
+      displayStory(title, story, { childName: name, mode: "random" });
+      enterReadingMode();
+      showSoftPremiumUpsell(name);
+    } catch (error) {
+      showToast(error.message || "Could not generate story", "error");
+    } finally {
+      hideLoading();
+    }
+  });
 }
 
 function showPaymentComingSoon() {
@@ -10224,6 +10339,21 @@ onAuthStateChanged(auth, async (user) => {
     cachedSeries = {};
     cachedTrial = null;
     navigateTo('auth');
+
+    const csFromUrl = getGuestCheckoutSessionFromUrl();
+    const csFromStorage = localStorage.getItem("dt-guest-oneoff-cs");
+    const sessionId = csFromUrl || csFromStorage;
+    if (sessionId) {
+      guestOneoffSessionId = sessionId;
+      localStorage.setItem("dt-guest-oneoff-cs", sessionId);
+      if (csFromUrl) {
+        history.replaceState(null, "", window.location.pathname);
+      }
+      setTimeout(() => {
+        showToast("Payment confirmed. Let's create your story.", "success");
+        openGuestOneoffPrompt(sessionId);
+      }, 250);
+    }
   }
 });
 
@@ -10257,10 +10387,6 @@ window.handleSubscribe = handleSubscribe;
 window.showUpsell = showUpsell;
 window.buyOneStory = () => handleSubscribe("oneoff");
 window.buyOneStoryFromAuth = () => {
-  if (!currentUser) {
-    showToast("Log in or sign up to unlock your 99p story", "info");
-    return;
-  }
   handleSubscribe("oneoff");
 };
 window.buyPremium = () => handleSubscribe("subscription");

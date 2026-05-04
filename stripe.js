@@ -25,15 +25,17 @@ export async function createCheckoutSession(req, res) {
     return res.json({ disabled: true, message: "Payments coming soon" });
   }
 
-  // Checkout always needs a real uid
   const uid = req.authUser?.uid;
-  if (!uid) {
-    return res.status(401).json({ error: "Login required to purchase" });
-  }
-
   const type = ["subscription", "oneoff", "pack"].includes(req.body?.type)
     ? req.body.type
     : "subscription";
+
+  // Subscription / packs require an authenticated account.
+  // One-off 99p can be purchased as a guest.
+  if (!uid && type !== "oneoff") {
+    return res.status(401).json({ error: "Login required to purchase" });
+  }
+
   const priceId = PRICE_IDS[type];
 
   if (!priceId) {
@@ -42,13 +44,18 @@ export async function createCheckoutSession(req, res) {
 
   try {
     const base = process.env.BASE_URL || "http://localhost:3000";
+    const metadata = { type };
+    if (uid) metadata.uid = uid;
+
     const sessionParams = {
       payment_method_types: ["card"],
       mode: type === "subscription" ? "subscription" : "payment",
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: type === "oneoff" ? `${base}/?paid=oneoff` : `${base}/`,
+      success_url: type === "oneoff"
+        ? `${base}/?paid=oneoff&cs={CHECKOUT_SESSION_ID}`
+        : `${base}/`,
       cancel_url: `${base}/`,
-      metadata: { uid, type },
+      metadata,
     };
     if (req.authUser?.email) sessionParams.customer_email = req.authUser.email;
     const session = await stripe.checkout.sessions.create(sessionParams);
@@ -231,4 +238,70 @@ export async function handleWebhook(req, res) {
     }
     return res.status(500).json({ error: "Webhook processing failed" });
   }
+}
+
+export async function validateAndConsumeGuestOneoff(checkoutSessionId) {
+  const stripe = getStripe();
+  if (!stripe) {
+    return { ok: false, status: 503, error: "Payments are currently unavailable." };
+  }
+
+  if (!checkoutSessionId || typeof checkoutSessionId !== "string") {
+    return { ok: false, status: 400, error: "Missing checkout session id." };
+  }
+
+  let session;
+  try {
+    session = await stripe.checkout.sessions.retrieve(checkoutSessionId);
+  } catch {
+    return { ok: false, status: 400, error: "Invalid checkout session." };
+  }
+
+  const type = session?.metadata?.type;
+  if (type !== "oneoff") {
+    return { ok: false, status: 400, error: "This checkout session is not a one-off purchase." };
+  }
+
+  if (session?.payment_status !== "paid") {
+    return { ok: false, status: 402, error: "Payment has not completed yet." };
+  }
+
+  // Logged-in one-off purchases should be consumed by account flow, not guest flow.
+  if (session?.metadata?.uid) {
+    return { ok: false, status: 400, error: "This purchase is linked to an account. Please log in." };
+  }
+
+  if (!getApps().length) {
+    return { ok: false, status: 500, error: "Payments backend is unavailable." };
+  }
+
+  const db = getFirestore();
+  const claimRef = db.collection("guestOneoffClaims").doc(checkoutSessionId);
+
+  try {
+    const txResult = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(claimRef);
+      if (snap.exists && snap.data()?.used) {
+        return { alreadyUsed: true };
+      }
+
+      tx.set(claimRef, {
+        used: true,
+        usedAt: Date.now(),
+        paymentStatus: session.payment_status,
+        amountTotal: session.amount_total || null,
+        currency: session.currency || null,
+      }, { merge: true });
+
+      return { alreadyUsed: false };
+    });
+
+    if (txResult.alreadyUsed) {
+      return { ok: false, status: 409, error: "This one-off story has already been used." };
+    }
+  } catch (error) {
+    return { ok: false, status: 500, error: `Could not validate purchase: ${error.message}` };
+  }
+
+  return { ok: true };
 }

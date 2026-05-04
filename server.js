@@ -119,7 +119,7 @@ import {
   assertStoryQuality,
   isStoryValid,
 } from "./story-quality.js";
-import { createCheckoutSession, handleWebhook } from "./stripe.js";
+import { createCheckoutSession, handleWebhook, validateAndConsumeGuestOneoff } from "./stripe.js";
 
 // =============================================================================
 // Environment / config
@@ -1604,9 +1604,104 @@ app.get("/api/teddy-topup", corsMiddleware, requireAiAuth, async (req, res) => {
 // =============================================================================
 
 app.options("/api/checkout", corsMiddleware);
-app.post("/api/checkout", corsMiddleware, express.json({ limit: "4kb" }), requireAiAuth, (req, res) => {
-  createCheckoutSession(req, res);
+app.post("/api/checkout", corsMiddleware, express.json({ limit: "4kb" }), (req, res, next) => {
+  const type = req.body?.type;
+  // One-off 99p checkout can be started as a guest (no signup/login).
+  if (type === "oneoff") {
+    return createCheckoutSession(req, res);
+  }
+  return requireAiAuth(req, res, () => createCheckoutSession(req, res));
 });
+
+app.options("/api/guest/generate-oneoff", corsMiddleware);
+app.post(
+  "/api/guest/generate-oneoff",
+  corsMiddleware,
+  express.json({ limit: "8kb" }),
+  generateLimiter,
+  [
+    body("checkoutSessionId").isString().isLength({ min: 10, max: 200 }).trim(),
+    body("name").isString().isLength({ min: 1, max: 50 }).trim(),
+    body("gender").optional().isIn(["boy", "girl", "neutral"]),
+    body("language").optional().isString().isLength({ max: 10 }).trim(),
+    body("dialect").optional().custom(isSupportedStoryLocale),
+  ],
+  async (req, res) => {
+    try {
+      if (!AI_ENABLED) {
+        return res.status(503).json({
+          error: "Story generation is temporarily unavailable. Please try again shortly.",
+          reason: "ai_unconfigured",
+        });
+      }
+
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ error: "Please provide valid child details." });
+      }
+
+      const checkoutSessionId = String(req.body?.checkoutSessionId || "").trim();
+      const purchase = await validateAndConsumeGuestOneoff(checkoutSessionId);
+      if (!purchase.ok) {
+        return res.status(purchase.status || 400).json({ error: purchase.error || "Purchase validation failed." });
+      }
+
+      const cleanName = sanitizeInput(req.body?.name || "").slice(0, 50) || "Little Star";
+      const cleanGender = ["boy", "girl", "neutral"].includes(req.body?.gender) ? req.body.gender : "neutral";
+      const cleanDialect = resolveLanguageCode(req.body?.dialect || req.body?.language || "en-GB");
+      const cleanInterests =
+        cleanGender === "boy"
+          ? "adventure, friendship, stars, kindness"
+          : cleanGender === "girl"
+            ? "magic, friendship, stars, kindness"
+            : "imagination, friendship, stars, kindness";
+
+      const storyInputs = {
+        name: cleanName,
+        age: "5",
+        interests: cleanInterests,
+        length: "medium",
+        mode: "medium-surprise",
+        storyType: "quick",
+        language: cleanDialect,
+        dialect: cleanDialect,
+        customIdea: "",
+        therapeuticSituation: "",
+        seriesContext: "",
+        childWish: "",
+        dayBeats: "",
+        dayMood: "",
+        globalInspiration: undefined,
+        appearance: undefined,
+        personalWorld: undefined,
+        gender: cleanGender,
+        siblings: undefined,
+        family: undefined,
+        cultural_world: undefined,
+        recurring_character: undefined,
+        last_story_summary: undefined,
+      };
+
+      const { story, title } = await runStoryPipeline(storyInputs, {
+        mode: "random",
+        rawMode: "medium-surprise",
+        cleanName,
+        cleanDialect,
+        cleanInterests,
+        cleanIdea: "",
+        cleanWish: "",
+        cleanSeriesContext: "",
+        cleanBeats: "",
+        length: "medium",
+      });
+
+      return res.json({ story, title: title || `${cleanName}'s Bedtime Story` });
+    } catch (error) {
+      logEvent(`Guest one-off generation error: ${error.message}`);
+      return res.status(500).json({ error: "Something went wrong. Please try again." });
+    }
+  }
+);
 
 // Webhook must use raw body — register BEFORE any global json middleware
 app.post("/api/webhook", express.raw({ type: "application/json" }), (req, res) => {
