@@ -741,6 +741,7 @@ function cleanStory(text) {
 
 function polishStory(text) {
   return text
+    .replace(/^\s*---+\s*$/gm, "") // strip markdown dividers that break story flow
     .replace(/[ \t]{2,}/g, " ")   // collapse multiple spaces/tabs (preserve newlines)
     .replace(/\n{3,}/g, "\n\n")   // collapse triple+ newlines to double
     .trim();
