@@ -1698,8 +1698,8 @@ app.post(
         cleanSeriesContext: "",
         cleanBeats: "",
         length: "medium",
-        useFullPipeline: false,
-        maxAttempts: 1,
+        useFullPipeline: true,
+        maxAttempts: 2,
       });
 
       return res.json({ story, title: title || `${cleanName}'s Bedtime Story` });

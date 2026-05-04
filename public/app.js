@@ -6439,30 +6439,7 @@ function openGuestOneoffPrompt(sessionId) {
       if (paymentError) {
         showToast(msg || "Payment validation failed. Please try again.", "error");
       } else {
-        // Professional resilience: after payment, always deliver a readable story
-        // even if AI/network briefly fails.
-        const fallbackTitle = `${name}'s Bedtime Story`;
-        const fallbackStory = [
-          `${name} looked up as the night sky shimmered like velvet scattered with tiny lanterns.`,
-          `A warm little spark drifted down and hovered beside ${name}, glowing softly as if it had been searching for exactly this moment.`,
-          `"Will you help me carry a little more light tonight?" it seemed to whisper.`,
-          "",
-          `Together they followed a silver path through the garden, where moonbeams painted the leaves in gentle gold.`,
-          `At each step, ${name} offered one kind thought: for family, for friends, for tomorrow's adventures.`,
-          "With every kind thought, the spark grew brighter and steadier, until it looked like a tiny star dancing in the air.",
-          "",
-          `When they reached the old gate, the star gave a happy hum and floated back toward the sky, now shining stronger than before.`,
-          `${name} climbed into bed feeling calm, brave, and wonderfully loved.`,
-          "Outside, the stars kept watch, and the whole world felt safe and full of quiet magic.",
-        ].join("\n\n");
-
-        modal.remove();
-        localStorage.removeItem("dt-guest-oneoff-cs");
-        guestOneoffSessionId = null;
-        displayStory(fallbackTitle, fallbackStory, { childName: name, mode: "random" });
-        enterReadingMode();
-        showSoftPremiumUpsell(name);
-        showToast("Story delivered while we quietly retried our magic behind the scenes.", "info");
+        showToast(msg || "Could not generate your one-off story. Please try again.", "error");
       }
     } finally {
       if (phaseTimer) clearInterval(phaseTimer);
