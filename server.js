@@ -698,8 +698,12 @@ const CHILD_SAFETY_BANNED = [
   "racist","nigger","faggot","retard",
 ];
 
+// Use whole-word matches to avoid false positives like "hello" matching "hell".
+// Keep explicit stem support where needed (e.g. "masturbat...").
 const SAFETY_PATTERN = new RegExp(
-  CHILD_SAFETY_BANNED.map(w => `\\b${w}`).join("|"),
+  CHILD_SAFETY_BANNED
+    .map((w) => (w === "masturbat" ? `\\b${w}\\w*\\b` : `\\b${w}\\b`))
+    .join("|"),
   "i"
 );
 
