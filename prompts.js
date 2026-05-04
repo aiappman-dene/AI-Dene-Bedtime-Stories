@@ -120,6 +120,19 @@ Before outputting, internally score the story:
 If any answer is No → rewrite the specific section until it passes.
 
 ====================================
+STAGE 7 — LENGTH & PACING (NON-NEGOTIABLE)
+====================================
+TARGET LENGTH: 900–1100 words. Count your words before outputting.
+- Under 850 words: incomplete — expand the journey beats or deepen the resolution.
+- Over 1150 words: too long — trim filler, tighten transitions, cut repeated imagery.
+
+PACING THE ENDING:
+- The final quarter of the story must slow down noticeably.
+- Sentence lengths should shorten. Action should reduce.
+- The last paragraph must feel like a sigh — warm, unhurried, complete.
+- The very last sentence should be the quietest one in the story.
+
+====================================
 OUTPUT RULE
 ====================================
 Return ONLY the final story. No title. No labels. No commentary. No explanations. Just the story prose.`;
@@ -348,184 +361,203 @@ Your rules:
 - Preserve dialect, tone, sentence length, and pacing throughout.
 - Return ONLY the corrected story — no preamble, no labels, no explanation.`;
 
-export function buildStoryPrompt({ name, age, interests, length, dialect, language, customIdea, seriesContext, childWish, appearance, dayBeats, dayMood, globalInspiration }) {
-  const ageNum = parseInt(age) || 5;
-  const wordRange = getWordRange(length);
-  const languageLevel = getLanguageLevel(ageNum);
-  // `language` takes priority over legacy `dialect` for story language
-  const languageStyle = getLanguageInstruction(language || dialect);
+const DREAMTALEZ_STYLE = `
+DreamTalez Signature Style:
 
-  // Hero ideas take absolute priority. For quick stories, tonight's wish should
-  // drive setting/theme inference before the child's broader saved interests.
-  const inferSource = customIdea || childWish || interests;
-  const setting = inferSetting(inferSource);
-  const theme = inferTheme(inferSource);
+- Gentle magical realism (soft magic, not overwhelming)
+- Emotional warmth over action
+- Small meaningful moments (kindness, curiosity, reassurance)
+- Calm, safe atmosphere at all times
+- Bedtime-focused pacing (never rushed, never chaotic)
+- Endings must feel peaceful, sleepy, and comforting
 
-  // Mode inference: today > hero > random
-  // - today: parent shares real-life beats → gentle reflection story
-  // - hero: custom idea is a contract, must be followed exactly
-  // - random: magical story inspired by the child's interests
-  const mode = dayBeats ? "today" : customIdea ? "hero" : "random";
-  const personality = selectStoryPersonality({ name, age: ageNum, interests, mode, customIdea, dayMood });
-  const blueprint = STORY_BLUEPRINTS[mode] || STORY_BLUEPRINTS.random;
+Language Style:
+- Soft, flowing sentences
+- No harsh or abrupt wording
+- Avoid loud/exciting tone
+- Prioritise calm imagery (stars, night, quiet, warmth, light)
 
-  // Mood guidance map — shapes the emotional arc for today-mode stories
-  const moodGuidance = {
-    joyful: "The story should carry the warmth and happiness of today forward into a gentle celebration, ending in restful contentment.",
-    brave: "Honour the child's courage today — gently reflect back how brave they were, so they fall asleep feeling strong and proud.",
-    nervous: "Today had worry or nerves. The story should softly acknowledge the feeling (without naming it directly) and lead the child to a place of safety, reassurance, and peace.",
-    tired: "Today was tiring or grumpy. The story should be especially slow, soft, and forgiving — a warm blanket of a story that lets the child rest.",
-    exciting: "Today was full and busy. The story should slow the pace down gently, helping the child settle from a big day into quiet calm.",
-    quiet: "Today was peaceful. Match that quietness with a softly paced, gentle story that honours the calm.",
-    mixed: "Today held mixed feelings. Weave the moments together with warmth, ending in reassurance that every kind of day can end with a safe, loved sleep.",
-  };
+This must feel like a premium bedtime story, not an AI-generated story.
+`;
 
-  // Build the idea section — fundamentally different between modes
-  let ideaSection;
-  if (dayBeats) {
-    // TODAY MODE: Weave real-life moments into a gentle bedtime reflection
-    const moodLine = dayMood && moodGuidance[dayMood]
-      ? `\n\nOVERALL MOOD: ${moodGuidance[dayMood]}`
-      : "";
-    ideaSection = `STORY FROM TODAY (REAL LIFE → GENTLE REFLECTION):
-Today, these things happened in ${name}'s real life:
-"${dayBeats}"${moodLine}
+// =============================================================================
+// STORY MODE IDENTITIES
+// Each mode has a distinct purpose, emotional feel, and structural goal.
+// These are injected into buildStoryPrompt alongside the base context.
+// =============================================================================
 
-YOUR TASK:
-- Take ${name}'s real-day moments and reflect them back as a GENTLE bedtime story — honouring what actually happened.
-- The story can be lightly imaginative (a small touch of magic, a kind animal friend, a cosy corner of nature) but it must stay CLOSE to the real events. This is a memory-keeper, not a fantasy.
-- Each real moment should appear in the story as a warm, softened echo. Keep names and details the parent shared (siblings, places, small actions).
-- Turn any hard moments (falls, worries, tiredness, grumpiness) into moments of BRAVERY, KINDNESS, or QUIET COURAGE. Never dwell on the difficulty — honour it, then gently move past it.
-- Never invent frightening events, illness, loss, or conflict. Never introduce anything the parent didn't share.
-- Close with ${name} tucked in, reflecting on today's small wins and feeling safe, loved, and ready to sleep.
-- The child's interests (${interests}) may colour the tone but the REAL DAY is the subject.
+const SLEEPY_MODE_PROMPT = `
+STORY IDENTITY: DRIFT OFF
 
-Think of this as: "How would a loving grandparent retell today as a bedtime story?"`;
-  } else if (customIdea) {
-    // HERO MODE: The custom idea is a strict contract. The AI must follow it exactly.
-    const continuityBlock = seriesContext
-      ? `
+This is not a story. This is a sleep transition.
 
-SERIES CONTINUITY (KEEP THIS STABLE WHEN IT FITS TONIGHT'S IDEA):
-${seriesContext}
+Purpose: guide the child gently from wakefulness into sleep.
 
-Treat this as continuity guidance, not as replacement for the custom idea. Continue recurring characters, world details, and emotional threads where natural, while still making tonight feel like a fresh complete story.`
-      : "";
-    ideaSection = `CUSTOM STORY IDEA (MANDATORY — FOLLOW EXACTLY):
-"${customIdea}"
+Feel: soft, slow, safe, and repetitive. Nothing urgent or exciting should happen.
+The world becomes quieter with every paragraph. The child drifts, not rushes.
 
-The story MUST be built around this exact idea. Do NOT change, ignore, or loosely interpret it.
-Do NOT replace it with your own concept. If the idea is specific, honour it precisely.
-The idea is the foundation of the story — everything else (setting, characters, events) must serve it.
-The child's interests are: ${interests}. Use these to enrich the story, but the custom idea takes priority.${continuityBlock}`;
-  } else {
-    // RANDOM MODE: Use the child's interests to inspire a magical story
-    const wishBlock = childWish
-      ? `
+Structure:
+1. Open in a state that is already calm — not building toward calm.
+2. The character floats, wanders, or settles into something warm.
+3. Nothing urgent happens. No challenge, no problem, no stakes.
+4. The world gradually becomes quieter around the child.
+5. The final paragraph slows to almost nothing. Each sentence shorter than the last.
+6. The final sentence is a whisper. One image. Almost silence.
 
-TONIGHT'S WISH (what the child said they want a story about):
-"${childWish}"
+Imagery to use: glowing lights, soft skies, warm blankets, quiet waters, distant stars, slow breathing, closing petals, candlelight, the sound of rain.
 
-    Honour this wish as TONIGHT'S MAIN STORY PROMISE. It must be central, obvious, and active on-page — not just hinted at.
-    - If the wish is a simple action or image such as "flying", "swimming", or "rockets", that action/image must clearly happen in the story itself.
-    - The wish should shape the beginning, the journey, and the resolution.
-    - Do not replace the wish with a nearby theme. For example, "flying" should not become merely "space" or "birds"; the child should actually be flying, gliding, soaring, or lifted through the air in a calm bedtime-safe way.
-    - Do not reduce the wish to a passing mention, background detail, or metaphor.
-    - If the wish combines multiple parts, preserve ALL major parts together. For example:
-      - "flying over dolphins" should include both the flying action and dolphins below in a sea or ocean setting.
-      - "through Egypt" should clearly evoke Egypt itself — such as moonlit desert sand, pyramids, or the Nile — rather than drifting into a generic travel story.
-      - "flying through Egypt" should preserve both the flying action and the Egyptian setting.
+Pacing rule: sentences must physically slow down as the story progresses.
+The reader should feel their own breathing slow.
 
-    If the wish contains anything physically impossible or over-stimulating (e.g. "flying with dolphins", "riding a rocket"), GENTLY reinterpret it into a bedtime-calm, physically plausible version:
-- "flying with dolphins" → the child glides above the waves while dolphins leap joyfully beneath
-- "riding a rocket" → a soft, slow moon-lantern carrying them gently to the stars
-- Anything scary, fast, loud, or frightening → reshape into something calm, slow, and warm
-Keep the child's imagination honoured, but always calming, never exciting or energising.`
-      : "";
-    ideaSection = `CHILD'S INTERESTS: ${interests}${wishBlock}
+The final line must feel like falling asleep — not ending a story.
+`;
 
-Create a magical, original story inspired by these interests${childWish ? " and tonight's wish above" : ""}. The story should feel fresh and surprising — not a generic template.`;
-  }
+const ADVENTURE_MODE_PROMPT = `
+STORY IDENTITY: MAGICAL JOURNEY
 
-  // Appearance block — used for prose description only, NEVER to copy character/plot
-  const appearanceBlock = appearance
+This is not just a fun story. This is a mini cinematic journey.
+
+Purpose: take the child somewhere extraordinary and bring them home feeling happy and settled.
+
+Feel: magical, curious, uplifting, safe excitement. The child leans forward — then is gently brought back to calm.
+
+Structure:
+1. Open with a sense of curiosity. Something catches the child's eye or calls to them.
+2. The child steps into a magical world. Describe it with wonder and specificity.
+3. A light, non-threatening challenge or mystery appears — something to discover, not to fear.
+4. The child solves it or achieves it through kindness, curiosity, or imagination.
+5. A moment of genuine wonder and satisfaction — the payoff.
+6. The world softens. The child returns to safety, warm and happy.
+7. The ending is calm and complete — never a cliffhanger.
+
+Tone: exciting but never overwhelming. Safe adventure. The child is always protected.
+Magic is gentle, not dramatic. Wonder, not danger.
+
+The ending must land with warmth and quiet — the child settles, proud and at peace.
+`;
+
+const FEELINGS_MODE_PROMPT = `
+STORY IDENTITY: EMOTIONAL SAFETY
+
+This is not a lesson. This is a guided emotional experience.
+
+Purpose: help the child feel understood, held, and safe around a big feeling.
+
+Feel: gentle, reassuring, warm, and deeply human. The child should feel seen.
+
+Structure:
+1. Open in an ordinary moment that introduces an emotional feeling naturally.
+2. The child character encounters a feeling — worry, nervousness, sadness, bravery, or kindness.
+3. The feeling is explored with gentleness. Never minimised, never dramatic.
+4. A companion, a moment of quiet, or a small act of kindness helps the child understand it.
+5. The feeling transforms — not disappearing, but becoming manageable and safe.
+6. The ending is warm and emotionally complete. The child feels understood and supported.
+
+Tone rules:
+- Never lecture or explain. Show through action and feeling.
+- Never say "you should feel..." or "it's okay to feel..." — show it instead.
+- The emotional moment must feel real, not performed.
+- The child character should not be fixed by the story — they should be held.
+
+The final tone must be warm, safe, and deeply reassuring.
+The last line should leave the child feeling: I am not alone.
+`;
+
+const HERO_MODE_PROMPT = `
+STORY IDENTITY: PERSONAL MYTH
+
+This is not a story. This is personal myth-building.
+
+Purpose: make the child feel genuinely important — like the world noticed them.
+
+Feel: empowering, magical, personal, and meaningful. The child is extraordinary from sentence one.
+
+Structure:
+1. The child is important from the very first sentence — not introduced, not described. Already present. Already the centre.
+2. The world responds to their presence. Things shift when they arrive.
+3. They face a meaningful choice — not just a problem. A moment where their character matters.
+4. They succeed, lead, help, or create — through who they are, not luck or accident.
+5. Others notice. The world is better because of them.
+6. The ending is calm and proud. The child settles into sleep feeling valued.
+
+Critical rules:
+- The child must DRIVE the story. Never passive. Never just carried along.
+- The custom idea is the world, the problem, and the resolution — not a backdrop.
+- Every beat must reinforce: you matter. You are capable. You are seen.
+- The final tone must be calm and warm — proud, not electric.
+
+The last line should feel like: the world is good, and so are you.
+`;
+
+// Maps story mode to its identity prompt block
+function getModeIdentityPrompt(mode) {
+  if (mode === "sleepy") return SLEEPY_MODE_PROMPT;
+  if (mode === "therapeutic") return FEELINGS_MODE_PROMPT;
+  if (mode === "hero" || mode === "custom" || mode === "create") return HERO_MODE_PROMPT;
+  // random, medium-surprise, long-surprise, today all use adventure as default
+  return ADVENTURE_MODE_PROMPT;
+}
+
+// The DreamTalez brand voice — applied to every story regardless of mode.
+// Ensures a consistent authored feel across all 4 experiences.
+const DREAMTALEZ_SIGNATURE = `
+SIGNATURE STYLE:
+Write in a warm, emotionally rich, cinematic storytelling style suitable for a high-quality children's bedtime book.
+
+Use vivid but simple language.
+Keep sentences natural and easy to follow.
+Avoid repetition, filler, or overly complex phrasing.
+
+The story should feel like it was written by a professional children's author, not generated.
+
+Dialogue should be minimal and gentle.
+Descriptions should focus on feeling, warmth, and imagination.
+
+Every paragraph should feel purposeful.
+
+Avoid overly dramatic language.
+Keep the tone grounded, warm, and believable within the magical world.
+
+Vary the opening naturally — do not start every story the same way.
+Avoid "Once upon a time", "There was a child named", or any formulaic opener.
+Each story should feel like it begins mid-breath, already inside the world.
+`;
+
+export function buildStoryPrompt({ name, age, interests, length, dialect, language, customIdea, seriesContext, childWish, appearance, dayBeats, dayMood, globalInspiration, mode }) {
+  // Derive the story theme from the richest available input
+  const theme = customIdea || childWish || dayBeats || interests || "magical bedtime adventure";
+
+  const heroCustomBlock = (mode === "hero" || mode === "custom" || mode === "create") && customIdea
     ? `
-- Appearance: ${appearance}
-
-APPEARANCE RULES:
-- Weave the child's appearance naturally into the prose (1–2 gentle mentions is plenty).
-- If the parent referenced a known character (e.g. "hair like Princess Jasmine"), use it ONLY as a visual cue — do NOT name the character, copy their story, or borrow their setting.
-- Never describe clothing, body, or features in a way that could feel uncomfortable — keep it warm, simple, and child-appropriate.`
+Custom story idea (this is the foundation — keep it central throughout):
+"${customIdea}"
+`
     : "";
 
-  const storyCraftBlock = `
-STORY DNA:
-- Story promise: ${blueprint.promise}
-- Child personality lane: ${personality.label}
-- Personality traits to show in action: ${personality.traits}
-- Inner strength to spotlight: ${personality.strength}
-- Comfort style to return to at the ending: ${personality.comfortStyle}
-- Core theme: ${theme}
+  return `
+You are a world-class children's bedtime storyteller.
 
-EMOTIONAL CORE (PIXAR RULE — MANDATORY):
-Before writing, identify:
-- WANT (external): What does ${name} want to achieve or find in this story?
-- NEED (internal): What does ${name} quietly discover about themselves by the end?
-Both must be resolved. The WANT drives the plot. The NEED creates the emotional resonance parents feel.
+${DREAMTALEZ_STYLE}
+${DREAMTALEZ_SIGNATURE}
+${getModeIdentityPrompt(mode)}
+Child's name: ${name}
+Theme: ${theme}
 
-CRAFT RULES (THIS IS WHAT MAKES THE STORY FEEL PAID-FOR, NOT GENERATED):
-- Open with ONE specific sensory image — a sound, a smell, a texture, a light. Never "Once upon a time".
-- Give ${name} one memorable emotional quality revealed through action, not description.
-- Make every paragraph do one job: hook, deepen, turn, reveal, resolve, settle.
-- Use SPECIFIC nouns: not "a flower" but "a buttercup the colour of afternoon sunshine".
-- Include at least 2 lines of natural, character-specific dialogue with quotation marks.
-- Show emotions through physical reactions, never by naming them.
-- Include ONE sentence so beautiful or precisely true that a parent would pause while reading it aloud.
-- Vary sentence length: short sentences for emotional punches, longer ones for wonder and world-building.
-- The ending must feel earned, sleepy, and emotionally complete — with both WANT and NEED resolved.`;
+Length:
+- 7–10 minutes reading time (~900–1100 words)
+- Do NOT exceed 1100 words. Do NOT go under 900 words.
 
-  const storyBlueprintBlock = blueprint.beats.map((beat, index) => `${index + 1}. ${beat}`).join("\n");
-
-  return `Write a bedtime story for this child:
-
-STORY MODE: ${mode}
-
-CHILD:
-- Name: ${name}
-- Age: ${ageNum} years old${appearanceBlock}
-
-${ideaSection}
-
-LANGUAGE LEVEL: ${languageLevel}
-LANGUAGE STYLE: ${languageStyle}
-
-SETTING: ${setting}
-THEME: ${theme}
-
-${storyCraftBlock}
-
-STORY STRUCTURE:
-${dayBeats
-  ? `1. Opening — Begin with ${name} at the close of their day, in a warm and familiar setting (home, bedroom, garden).
-2. Reflection — Gently revisit each moment from today, one by one, turning each into a soft image or small scene.
-3. Honouring — Give each moment its due warmth: courage recognised, joy remembered, tiredness forgiven.
-4. Comfort — A quiet moment of reassurance — that today mattered, and that ${name} is loved.
-5. Bedtime — ${name} is tucked in, feeling safe and loved, drifting off. End with ${name} fully settled. You MAY add ONE final "sleepy seed" sentence — a gentle image of the story world continuing peacefully without them. No cliffhangers, no "just the beginning", no teasing.`
-  : `1. Opening — Gently introduce ${name} in the setting. Establish warmth and calm.
-2. Discovery — ${name} notices something curious that sparks a gentle adventure.
-3. Journey — A calm, curiosity-driven journey${customIdea ? ` centred on "${customIdea}"` : ` inspired by the child's interests`}.
-4. Resolution — A warm, satisfying moment of wonder or kindness.
-5. Bedtime — ${name} returns home feeling safe, happy, and ready to sleep. End with ${name} fully settled. You MAY add ONE final "sleepy seed" sentence — a gentle image of the story world continuing peacefully without them (e.g. the characters tucking themselves in, the setting growing quiet). No cliffhangers, no "just the beginning", no teasing. The sleepy seed is warm and permanent, not exciting.`}
-
-PREMIUM STORY BLUEPRINT:
-${storyBlueprintBlock}
-
-LENGTH: ${wordRange}
-${Array.isArray(globalInspiration) && globalInspiration.length
-  ? `\nGLOBAL INSPIRATION (ideas that resonated with children worldwide — use as creative inspiration only, do not copy):\n${globalInspiration.map((idea) => `- ${idea}`).join("\n")}\n`
-  : ""}${CONTEXT_LOCK}
-
-Write the story now.`;
+Core rules (apply to all stories):
+- Use ${name}'s name naturally throughout — not just at the start. Do not repeat it too frequently; use it sparingly, the way a real author would.
+- Clear arc: beginning → middle → emotional moment → calm ending.
+- No filler, no repetition, no padding.
+- The final paragraph slows down significantly — shorter sentences, softer words.
+- The very last sentence is the quietest one in the whole story.
+- The final paragraph must feel like a gentle emotional landing — softer, slower, and quieter than everything before it.
+- The final sentence should feel like a calm exhale: simple, warm, and complete. Never abrupt. Never rushed.
+${heroCustomBlock}
+Return only the story text.
+`;
 }
 
 /**

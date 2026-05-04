@@ -31,8 +31,20 @@ button {
   transition: all 0.2s ease;
 }
 
+button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+}
+
 button:active {
   transform: scale(0.96);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 /* =============================================================================
@@ -671,12 +683,24 @@ body::before {
 }
 
 @keyframes pageEnter {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0);   }
+  from { opacity: 0; transform: scale(0.98) translateY(6px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
 }
+
 .page:not(.hidden) {
-  animation: pageEnter 220ms ease forwards;
+  animation: pageEnter 180ms ease-out forwards;
   will-change: opacity, transform;
+}
+
+.page-enter {
+  opacity: 0;
+  transform: scale(0.98);
+}
+
+.page-enter-active {
+  opacity: 1;
+  transform: scale(1);
+  transition: opacity 0.18s ease-out, transform 0.18s ease-out;
 }
 
 .page-scroll {
@@ -757,6 +781,29 @@ body::before {
 }
 
 /* =============================================================================
+   Ambient Background
+   ============================================================================= */
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: radial-gradient(
+    circle at 80% 20%,
+    rgba(255, 215, 150, 0.15),
+    transparent 60%
+  );
+  pointer-events: none;
+  animation: ambientMove 12s ease-in-out infinite;
+}
+
+@keyframes ambientMove {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-20px); }
+}
+
+/* =============================================================================
    Cards
    ============================================================================= */
 
@@ -771,7 +818,8 @@ body::before {
 }
 
 .card:hover {
-  transform: translateY(-3px);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3);
 }
 
 /* =============================================================================
@@ -1286,30 +1334,51 @@ select {
    ============================================================================= */
 
 .loading-overlay {
-  /* Layout / positioning */
   position: fixed;
   inset: 0;
+  z-index: 9998;
 
-  /* Visual */
-  background: rgba(0, 0, 0, 0.3);
+  background: radial-gradient(
+    circle at top,
+    rgba(99, 102, 241, 0.25),
+    rgba(0, 0, 0, 0.6)
+  );
 
-  /* Effects */
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
 
-  /* Animation */
-  transition: opacity 0.25s ease;
-
-  /* Existing layout behavior */
-  z-index: 500;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-direction: column;
+
+  animation: breathe 4s ease-in-out infinite;
 }
 
-@supports not ((backdrop-filter: blur(8px)) or (-webkit-backdrop-filter: blur(8px))) {
+.loading-overlay::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(white 1px, transparent 1px);
+  background-size: 40px 40px;
+  opacity: 0.08;
+  animation: starsMove 20s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.85; }
+}
+
+@keyframes starsMove {
+  from { transform: translateY(0); }
+  to { transform: translateY(-200px); }
+}
+
+@supports not ((backdrop-filter: blur(12px)) or (-webkit-backdrop-filter: blur(12px))) {
   .loading-overlay {
-    background: rgba(0, 0, 0, 0.55);
+    background: rgba(0, 0, 0, 0.75);
   }
 }
 
@@ -1383,13 +1452,74 @@ select {
   margin-top: 12px;
   min-height: 100px;
   white-space: pre-line;
-  line-height: 1.8;
-  font-size: 1rem;
-  color: rgba(255, 255, 255, 0.9);
+  line-height: 1.9;
+  font-size: 1.05rem;
+  font-family: 'Georgia', 'Times New Roman', serif;
+  color: rgba(255, 255, 255, 0.92);
   background: rgba(20, 8, 55, 0.85);
   border: 1px solid rgba(123, 97, 255, 0.2);
   border-radius: var(--radius-md);
-  padding: 20px;
+  padding: 24px 28px;
+  letter-spacing: 0.01em;
+}
+
+.story-paragraph {
+  margin-bottom: 1.2em;
+  font-family: 'Georgia', 'Times New Roman', serif;
+  line-height: 1.9;
+}
+
+/* =============================================================================
+   Toast Notifications
+   ============================================================================= */
+
+#toastContainer {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.toast {
+  padding: 13px 22px;
+  border-radius: 12px;
+  font-size: 0.92rem;
+  font-weight: 500;
+  color: #fff;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.28s ease, transform 0.28s ease;
+  max-width: 88vw;
+  text-align: center;
+  pointer-events: none;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+.toast.toast-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.toast-success {
+  background: rgba(60, 180, 110, 0.92);
+  border: 1px solid rgba(80, 220, 130, 0.4);
+}
+
+.toast-error {
+  background: rgba(180, 60, 80, 0.92);
+  border: 1px solid rgba(220, 80, 100, 0.4);
+}
+
+.toast-info {
+  background: rgba(80, 60, 160, 0.92);
+  border: 1px solid rgba(123, 97, 255, 0.4);
 }
 
 .story-actions {
@@ -1605,6 +1735,27 @@ select {
   font-size: 0.9rem;
 }
 
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  opacity: 0.9;
+}
+
+.empty-state h2 {
+  font-size: 20px;
+  margin-bottom: 10px;
+}
+
+.empty-state p {
+  font-size: 14px;
+  opacity: 0.8;
+  margin-bottom: 20px;
+}
+
+.empty-state .btn {
+  margin: 0 auto;
+}
+
 /* =============================================================================
    Siblings & Series (Hero form)
    ============================================================================= */
@@ -1756,6 +1907,32 @@ select {
 
 .paywall-card { text-align: center; }
 .paywall-note { text-align: center; margin-top: 10px; }
+.paywall-sub {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-light);
+  margin: 4px 0 10px;
+}
+.paywall-perks-note {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin: 6px 0 2px;
+}
+.paywall-conversion {
+  font-size: 0.82rem;
+  color: var(--gold);
+  font-weight: 600;
+  margin: 0 0 12px;
+}
+.paywall-pack { margin-top: 8px; }
+.paywall-divider {
+  text-align: center;
+  margin: 10px 0;
+  font-size: 0.85rem;
+  opacity: 0.5;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
 
 .paywall-price {
   margin: 12px 0 4px;
@@ -2314,21 +2491,50 @@ select {
   max-width: 170px;
 }
 
-.premium-badge {
-  background: rgba(255,208,96,0.12);
-  border: 1px solid rgba(255,208,96,0.35);
-  border-radius: 20px;
-  color: var(--gold);
-  font-size: 11px;
-  font-weight: 700;
+.premium-status {
+  background: rgba(255, 215, 0, 0.12);
+  color: #FFD700;
+  border: 1px solid rgba(255, 215, 0, 0.35);
   padding: 6px 13px;
-  cursor: pointer;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
   font-family: var(--font);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   white-space: nowrap;
-  transition: background 0.2s;
   flex-shrink: 0;
 }
-.premium-badge:hover { background: rgba(255,208,96,0.22); }
+
+@keyframes premiumPulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.75; }
+}
+
+.premium-cta {
+  background: linear-gradient(135deg, #FFD700, #FFB300);
+  color: #1a0f2e;
+  font-weight: 700;
+  font-family: var(--font);
+  border-radius: 999px;
+  padding: 6px 13px;
+  font-size: 11px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 0 18px rgba(255, 215, 0, 0.5);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  animation: premiumPulse 2.5s ease-in-out infinite;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.premium-cta:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 28px rgba(255, 215, 0, 0.8);
+  animation: none;
+}
 
 /* ── Hero overlay divs ── */
 .hero-overlay {
@@ -2428,7 +2634,7 @@ select {
   -webkit-tap-highlight-color: transparent;
   min-height: 90px;
 }
-.story-card:hover  { transform: translateY(-3px); box-shadow: 0 10px 30px rgba(0,0,0,0.35); }
+.story-card:hover  { transform: translateY(-4px); box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35); }
 .story-card:active { transform: scale(0.97); }
 
 /* Card colour variants */
@@ -3028,15 +3234,55 @@ select {
   font-weight: 500;
 }
 
-.quick-card span {
-  display: block;
-  font-size: 12px;
-  opacity: 0.7;
+.quick-card .card-icon {
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.quick-card .card-title {
+  margin-top: 6px;
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.quick-card .card-sub {
   margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.35;
+  opacity: 0.78;
+  color: var(--text-secondary);
 }
 
 .quick-card:hover {
-  transform: scale(1.02);
+  transform: translateY(-3px);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3);
+}
+
+.hero-card {
+  position: relative;
+  border: 1px solid rgba(255, 215, 0, 0.25);
+  overflow: hidden;
+}
+
+.hero-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.hero-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(255, 215, 0, 0.15), transparent 70%);
+  opacity: 0.8;
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+.hero-card:hover {
+  box-shadow: 0 0 30px rgba(255, 215, 0, 0.25);
+  transform: translateY(-4px);
 }
 
 /* FEELINGS + WORLDS */
@@ -3105,233 +3351,10 @@ select {
   font-size: 14px;
 }
 
-/* =========================================================
-   DREAMTALEZ GLOBAL ATMOSPHERE SYSTEM (FINAL)
-   Purple + Gold Consistency (NO layout/font changes)
-   ========================================================= */
-
-/* 🌌 1. GLOBAL BACKGROUND (ONLY ONE IN ENTIRE APP) */
-body {
-  background:
-    radial-gradient(
-      circle at 75% 25%,
-      rgba(255, 200, 120, 0.18),
-      transparent 45%
-    ),
-    radial-gradient(
-      circle at 20% 80%,
-      rgba(139, 92, 246, 0.22),
-      transparent 55%
-    ),
-    linear-gradient(
-      180deg,
-      #0b0f2a 0%,
-      #1a1f4f 50%,
-      #2a1a5f 100%
-    );
-
-  color: rgba(255,255,255,0.95);
-}
-
-/* 🌙 2. REMOVE ALL COMPETING BACKGROUNDS */
-.page,
-.home-screen,
-.library-screen,
-.account-screen,
-.settings,
-.container,
-.section,
-.hero,
-.story-container {
-  background: transparent !important;
-  background-color: transparent !important;
-}
-
-
-/* 💎 3. CARD SURFACES (glass look, keeps consistency) */
-.card,
-.story-card,
-.quick-card,
-.continue-card {
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 18px;
-
-  -webkit-backdrop-filter: blur(14px);
-  backdrop-filter: blur(14px);
-
-  position: relative;
-  overflow: hidden;
-}
-
-
-/* ✨ 4. GOLD GLOW (hover only, subtle premium feel) */
-.card::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-
-  background: radial-gradient(
-    circle at top right,
-    rgba(255, 200, 120, 0.15),
-    transparent 60%
-  );
-
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.card:hover::after {
-  opacity: 1;
-}
-
-/* 🌙 5. BOTTOM NAV (no more flat grey bar) */
-.bottom-nav {
-  background: rgba(10, 10, 30, 0.6);
-  -webkit-backdrop-filter: blur(16px);
-  backdrop-filter: blur(16px);
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-
-/* ⚠️ 6. CRITICAL HERO OVERLAY FIX */
-.hero-overlay {
-  background: rgba(0, 0, 0, 0.25) !important;
-}
-
-
-/* ✨ 7. LOADING OVERLAY (soft, not heavy) */
-.loading-overlay {
-  background: rgba(0, 0, 0, 0.3) !important;
-}
-
-/* =========================================================
-   Unified Glass System
-   ========================================================= */
-:root {
-  --glass-bg: rgba(255,255,255,0.05);
-  --glass-border: rgba(255,255,255,0.08);
-  --glass-blur: 14px;
-  --gold-glow: rgba(255, 200, 120, 0.15);
-}
-
-/* Apply to EVERYTHING interactive */
-.card,
-.story-card,
-.quick-card,
-.settings-card,
-input,
-textarea,
-.select,
-button.secondary {
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  -webkit-backdrop-filter: blur(var(--glass-blur));
-  backdrop-filter: blur(var(--glass-blur));
-  border-radius: 18px;
-}
-
-/* Unified Hover Feel */
-.card:hover,
-.story-card:hover,
-.quick-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.25);
-}
-
-/* Subtle Gold Identity */
-.card::after,
-.story-card::after,
-.quick-card::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-
-  background: radial-gradient(
-    circle at top right,
-    var(--gold-glow),
-    transparent 60%
-  );
-
-  opacity: 0;
-  transition: 0.3s;
-}
-
-.card:hover::after,
-.story-card:hover::after,
-.quick-card:hover::after {
-  opacity: 1;
-}
-
-/* Buttons consistency */
-button.primary {
-  background: linear-gradient(
-    135deg,
-    #7c3aed,
-    #fbbf24
-  );
-  color: white;
-}
-
-button.secondary {
-  background: var(--glass-bg);
-}
-
-/* =========================
-   GLOBAL AMBIENT LIGHT
-   ========================= */
-
-body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-
-  background:
-    radial-gradient(
-      circle at 80% 20%,
-      rgba(255, 200, 120, 0.12),
-      transparent 40%
-    ),
-    radial-gradient(
-      circle at 20% 70%,
-      rgba(139, 92, 246, 0.12),
-      transparent 50%
-    );
-
-  opacity: 0.8;
-}
-
-/* Subtle Card Illumination (always on) */
-.card,
-.story-card,
-.quick-card {
-  position: relative;
-}
-
-.card::before,
-.story-card::before,
-.quick-card::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-
-  background: radial-gradient(
-    circle at center,
-    rgba(255, 200, 120, 0.06),
-    transparent 70%
-  );
-
-  opacity: 1;
-}
-
-/* =========================================================
-   PERFECT CONSISTENT SYSTEM (copy this exactly)
-   ========================================================= */
+/* =========================================
+   DREAMTALEZ — FINAL PREMIUM SYSTEM
+   (DO NOT EDIT ABOVE THIS LINE)
+========================================= */
 
 :root {
   --bg-main: #0f0b1f;
@@ -3341,155 +3364,113 @@ body::after {
   --gold-soft: #ffd98a;
 
   --purple-accent: #6d4aff;
-  --purple-soft: #9f7aea;
 
-  --glass-bg: rgba(20, 15, 40, 0.55);
+  --glass-bg: rgba(20, 15, 40, 0.65);
   --glass-border: rgba(255, 215, 160, 0.15);
 
-  --text-primary: rgba(255,255,255,0.92);
-  --text-secondary: rgba(255,255,255,0.6);
-  --text-muted: rgba(255,255,255,0.35);
+  --text-primary: rgba(255,255,255,0.95);
+  --text-secondary: rgba(255,255,255,0.75);
+  --text-muted: rgba(255,255,255,0.5);
 }
 
-/* Background (ALL screens) */
+/* === GLOBAL BACKGROUND === */
 body {
   background: var(--bg-main);
+  color: var(--text-primary);
 }
 
-/* Global glow (matches hero mood) */
 body::before {
   content: "";
   position: fixed;
   inset: 0;
   z-index: -1;
+  pointer-events: none;
 
   background:
-    radial-gradient(circle at 70% 20%, rgba(246,196,83,0.15), transparent 60%),
-    radial-gradient(circle at 20% 80%, rgba(109,74,255,0.18), transparent 65%);
+    radial-gradient(circle at 70% 20%, rgba(246,196,83,0.12), transparent 60%),
+    radial-gradient(circle at 20% 80%, rgba(109,74,255,0.15), transparent 65%);
 }
 
-/* Cards / inputs (same everywhere) */
-.card,
-input,
-textarea {
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  -webkit-backdrop-filter: blur(18px);
-  backdrop-filter: blur(18px);
-}
-
-/* Primary button (gold glow = premium) */
-button.primary {
-  background: linear-gradient(135deg, #f6c453, #ffd98a);
-  color: #1a1a1a;
-}
-
-/* Secondary button */
-button.secondary {
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.1);
-}
-
-/* Design rule (this is your "gold standard") */
-/* Every screen must follow: */
-/* 70% dark purple */
-/* 20% glass surfaces */
-/* 10% gold highlights */
-
-/* ===============================
-   FINAL VISUAL CONSISTENCY LOCK
-   =============================== */
-
-/* Kill ALL legacy backgrounds */
+/* === REMOVE CONFLICTING BACKGROUNDS === */
 .page,
 .home-screen,
 .library-screen,
 .account-screen,
 .settings,
 .container,
-.section,
-.hero,
-.story-container {
+.section {
   background: transparent !important;
 }
 
-/* Force ALL cards to use system */
+/* === CARDS / SURFACES === */
 .card,
 .story-card,
+.settings-card,
 .quick-card,
-.settings-card {
-  background: var(--glass-bg) !important;
-  border: 1px solid var(--glass-border) !important;
-  -webkit-backdrop-filter: blur(18px) !important;
-  backdrop-filter: blur(18px) !important;
+.account-card {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  color: var(--text-primary);
+  text-shadow: 0 1px 2px rgba(0,0,0,0.4);
 }
 
-/* Remove ANY blue glow leftovers */
-* {
-  box-shadow: none;
+/* === TEXT HIERARCHY === */
+h1, h2, h3 {
+  color: var(--text-primary);
+  text-shadow: 0 2px 6px rgba(0,0,0,0.6);
 }
 
-/* Re-apply ONLY gold/purple glow */
-.card:hover {
-  box-shadow:
-    0 10px 40px rgba(0, 0, 0, 0.35),
-    0 0 25px rgba(246,196,83,0.15);
+p, span {
+  color: var(--text-secondary);
 }
 
-/* Fix bottom nav consistency */
+small, .muted {
+  color: var(--text-muted);
+}
+
+/* === INPUTS === */
+input,
+textarea {
+  background: rgba(255,255,255,0.05);
+  color: var(--text-primary);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+input::placeholder {
+  color: var(--text-muted);
+}
+
+/* === BUTTONS === */
+button.primary {
+  background: linear-gradient(135deg, #f6c453, #ffd98a);
+  color: #1a1a1a;
+  font-weight: 600;
+}
+
+button.secondary {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: var(--text-primary);
+}
+
+/* === BOTTOM NAV FIX === */
 .bottom-nav {
-  background: rgba(15, 10, 30, 0.65) !important;
+  background: rgba(15, 10, 30, 0.6);
   -webkit-backdrop-filter: blur(18px);
   backdrop-filter: blur(18px);
 }
 
-/* Ensure text consistency */
-body {
-  color: var(--text-primary);
+/* === REMOVE BLUE SYSTEM (FORCE CLEANUP) === */
+* {
+  box-shadow: none;
 }
 
-/* TEXT FIX SYSTEM */
-
-.card,
-.settings-card,
-.account-card,
-.library-card {
-  color: rgba(255,255,255,0.92);
-}
-
-.card p,
-.card span,
-.card small {
-  color: rgba(255,255,255,0.75);
-}
-
-.card .muted {
-  color: rgba(255,255,255,0.5);
-}
-
-button {
-  color: white;
-  font-weight: 500;
-}
-
-.card,
-.settings-card,
-.account-card {
-  text-shadow: 0 1px 2px rgba(0,0,0,0.4);
-}
-
-input,
-textarea {
-  color: rgba(255,255,255,0.95);
-}
-
-input::placeholder {
-  color: rgba(255,255,255,0.5);
-}
-
-.card,
-.settings-card {
-  background: rgba(20, 15, 40, 0.65);
+.card:hover,
+.story-card:hover,
+.quick-card:hover {
+  box-shadow: 0 10px 30px rgba(246,196,83,0.15);
 }
 
 /* ================================================================== */
@@ -3537,23 +3518,13 @@ input::placeholder {
   font-weight: 700 !important;
 }
 
-/* ================================================================== */
-/* DARK-FONT FIX — all text using --text-light (#0f172a near-black)   */
-/* is unreadable on dark glass backgrounds. Apply gold throughout.    */
-/* ================================================================== */
-
-/* ================================================================== */
-/* SELECT / DROPDOWN & TAB BUTTONS — white text on dark backgrounds   */
-/* ================================================================== */
-
 /* Select element text (Gender, Mood, Child filter, etc.) */
 select {
   color: rgba(255, 255, 255, 0.92) !important;
 }
 
-/* Dropdown option items — dark background so they're readable when open */
+/* Dropdown option items */
 select option {
-  background: #1a0f3a;
   color: rgba(255, 255, 255, 0.92);
 }
 
@@ -3565,7 +3536,6 @@ select option {
 .wizard-gender-btn.selected {
   color: #ffffff !important;
   border-color: var(--gold-primary) !important;
-  background: rgba(246, 196, 83, 0.15) !important;
 }
 
 /* Wizard interest chips */
@@ -3576,13 +3546,11 @@ select option {
 .wizard-chip.selected {
   color: #ffffff !important;
   border-color: var(--gold-primary) !important;
-  background: rgba(246, 196, 83, 0.15) !important;
 }
 
 /* Sibling option rows */
 .sibling-option {
   color: rgba(255, 255, 255, 0.88) !important;
-  background: rgba(255, 255, 255, 0.05) !important;
   border-color: rgba(255, 255, 255, 0.1) !important;
 }
 

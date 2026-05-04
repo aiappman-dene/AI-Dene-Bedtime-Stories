@@ -33,8 +33,6 @@ const firebaseConfig = {
   appId: "1:219771634733:web:007c920a5442a4d19c24a4"
 };
 
-console.log("🔥 Firebase config loaded:", firebaseConfig);
-
 // =============================================================================
 // ✅ INITIALIZE FIREBASE (NOTHING ABOVE CAN USE AUTH)
 // =============================================================================
@@ -44,9 +42,34 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 let isGenerating = false;
+let loadingInterval = null;
+let lastGenerationTime = 0;
+const COOLDOWN_MS = 5000;
 
-// Optional (helps debugging in console)
-window.auth = auth;
+// =============================================================================
+// Toast Notification System
+// =============================================================================
+
+function showToast(message, type = "info", duration = 3500) {
+  let container = document.getElementById("toastContainer");
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "toastContainer";
+    document.body.appendChild(container);
+  }
+
+  const toast = document.createElement("div");
+  toast.className = `toast toast-${type}`;
+  toast.textContent = message;
+  container.appendChild(toast);
+
+  requestAnimationFrame(() => toast.classList.add("toast-visible"));
+
+  setTimeout(() => {
+    toast.classList.remove("toast-visible");
+    toast.addEventListener("transitionend", () => toast.remove(), { once: true });
+  }, duration);
+}
 
 
 
@@ -62,7 +85,7 @@ window.signup = async function () {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     console.log("✅ Signed up:", userCredential.user);
   } catch (err) {
-    alert(err.message);
+    showToast(err.message, "error");
   }
 };
 
@@ -320,17 +343,101 @@ window.toggleFeelings = function () {
   section.classList.toggle("hidden");
 };
 
+const STORY_TYPES = [
+  {
+    type: "sleepy",
+    icon: "🌙",
+    title: "Sleepy Story",
+    sub: "Calm & relaxing",
+  },
+  {
+    type: "adventure",
+    icon: "✨",
+    title: "Adventure",
+    sub: "Magical journey",
+  },
+  {
+    type: "feelings",
+    icon: "❤️",
+    title: "Big Feelings",
+    sub: "Gentle emotional stories",
+  },
+  {
+    type: "hero",
+    icon: "✨",
+    title: "Be the Hero",
+    sub: "Tonight, you are the hero ✨",
+  },
+];
+
+function renderStoryCards() {
+  const container = document.getElementById("quickGrid");
+  if (!container) return;
+
+  container.replaceChildren();
+
+  STORY_TYPES.forEach((card) => {
+    const el = document.createElement("div");
+    el.className = `quick-card ${card.type === "hero" ? "hero-card" : ""}`.trim();
+
+    const icon = document.createElement("div");
+    icon.className = "card-icon";
+    icon.textContent = card.icon;
+
+    const title = document.createElement("div");
+    title.className = "card-title";
+    title.textContent = card.title;
+
+    const sub = document.createElement("div");
+    sub.className = "card-sub";
+    sub.textContent = card.sub;
+
+    el.addEventListener("click", () => selectStoryType(card.type));
+
+    el.appendChild(icon);
+    el.appendChild(title);
+    el.appendChild(sub);
+    container.appendChild(el);
+  });
+}
+
+document.addEventListener("DOMContentLoaded", renderStoryCards);
+
+window.selectStoryType = function (type) {
+  if (type === "hero") {
+    startHeroStory();
+    return;
+  }
+  if (type === "sleepy") {
+    startSleepyStory();
+    return;
+  }
+  if (type === "adventure") {
+    startAdventureStory();
+    return;
+  }
+  if (type === "feelings") {
+    toggleFeelings();
+  }
+};
+
 window.startCustomStory = function () {
   const idea = document.getElementById("storyInput")?.value?.trim();
 
   if (!idea) {
-    alert("Type something magical first ✨");
+    showToast("Type something magical first ✨", "info");
     return;
   }
 
   handleGenerate({
     mode: "custom",
     idea
+  });
+};
+
+window.startHeroStory = function () {
+  handleGenerate({
+    mode: "hero"
   });
 };
 
@@ -389,6 +496,8 @@ let cachedLibrary = [];
 let cachedSeries = {}; // { [childName]: { nightCount, lastTitle, lastSummary, lastSavedAt } }
 let cachedTrial = null; // { startedAt, storiesUsed, status: "active"|"expired"|"paid" }
 let cachedDialect = "en-GB";
+let cachedIsPremium = false;
+let cachedStoriesRemaining = 0;
 
 const TRIAL_DAYS = 7;
 const TRIAL_STORY_CAP = 7;
@@ -607,13 +716,13 @@ const UI_STRINGS = {
     lang_hint: "You can change this anytime in Settings",
     continue_btn: "Continue",
     back_btn: "← Back",
-    paywall_title: "Your free trial has ended",
+    paywall_title: "Continue the magic",
     paywall_hint: "Continue creating personalised bedtime stories your child will love.",
-    paywall_perk1: "10 magical stories every week",
+    paywall_perk1: "Up to 2 magical stories every night",
     paywall_perk2: "Story From Today, Medium & Long stories",
     paywall_perk3: "Full Story Library & series continuity",
     paywall_perk4: "12 languages · Safe · No ads",
-    subscribe_btn: "Start Subscribing — £3.99/month",
+    subscribe_btn: "Start Subscribing — £4.99/month",
     paywall_note: "Your saved stories stay yours — readable anytime.",
     welcome_title: "Welcome to DreamTalez ★",
     welcome_hint: "Add your first child to start creating magical stories.",
@@ -779,7 +888,7 @@ const UI_STRINGS = {
     log_in: "Se connecter",
     forgot_password: "Mot de passe oublié ?",
     sample_story_btn: "★ Lire une histoire d'exemple",
-    trust_line: "7 jours d'essai gratuit · Puis £3.99/mois · 10 histoires par semaine · Sans publicité",
+    trust_line: "Essai gratuit 7 jours · Puis £3.99/mois · 10 histoires par semaine · Sans publicité",
     auth_legal: "En vous inscrivant, vous acceptez nos",
     auth_terms: "Conditions",
     auth_and: "et notre",
@@ -788,13 +897,13 @@ const UI_STRINGS = {
     lang_hint: "Vous pouvez modifier cela à tout moment dans les Paramètres",
     continue_btn: "Continuer",
     back_btn: "← Retour",
-    paywall_title: "Votre période d'essai est terminée",
+    paywall_title: "Continuez la magie",
     paywall_hint: "Continuez à créer des histoires du soir personnalisées que votre enfant adorera.",
-    paywall_perk1: "10 histoires magiques chaque semaine",
+    paywall_perk1: "Jusqu'à 2 histoires magiques chaque soir",
     paywall_perk2: "Histoire du Jour, histoires Moyennes et Longues",
     paywall_perk3: "Bibliothèque complète et continuité des séries",
     paywall_perk4: "12 langues · Sûr · Sans publicité",
-    subscribe_btn: "S'abonner — £3.99/mois",
+    subscribe_btn: "S'abonner — £4.99/mois",
     paywall_note: "Vos histoires sauvegardées restent les vôtres — lisibles à tout moment.",
     welcome_title: "Bienvenue sur DreamTalez ★",
     welcome_hint: "Ajoutez votre premier enfant pour commencer à créer des histoires magiques.",
@@ -947,7 +1056,7 @@ const UI_STRINGS = {
     log_in: "Iniciar sesión",
     forgot_password: "¿Olvidaste tu contraseña?",
     sample_story_btn: "★ Leer un cuento de muestra",
-    trust_line: "7 días de prueba gratuita · Luego £3.99/mes · 10 cuentos por semana · Sin anuncios",
+    trust_line: "7 días de prueba gratis · Luego £3.99/mes · 10 cuentos por semana · Sin anuncios",
     auth_legal: "Al registrarte, aceptas nuestros",
     auth_terms: "Términos",
     auth_and: "y nuestra",
@@ -956,13 +1065,13 @@ const UI_STRINGS = {
     lang_hint: "Puedes cambiarlo en cualquier momento en Ajustes",
     continue_btn: "Continuar",
     back_btn: "← Atrás",
-    paywall_title: "Tu período de prueba ha terminado",
+    paywall_title: "Continúa la magia",
     paywall_hint: "Sigue creando hermosas historias de cuentos personalizadas que tu hijo amará.",
-    paywall_perk1: "10 cuentos mágicos cada semana",
+    paywall_perk1: "Hasta 2 cuentos mágicos cada noche",
     paywall_perk2: "Historia de Hoy, cuentos Medianos y Largos",
     paywall_perk3: "Biblioteca completa y continuidad de series",
     paywall_perk4: "12 idiomas · Seguro · Sin anuncios",
-    subscribe_btn: "Suscribirse — £3.99/mes",
+    subscribe_btn: "Suscribirse — £4.99/mes",
     paywall_note: "Tus historias guardadas son tuyas para siempre — legibles en cualquier momento.",
     welcome_title: "Bienvenido a DreamTalez ★",
     welcome_hint: "Añade tu primer hijo para empezar a crear cuentos mágicos.",
@@ -1115,7 +1224,7 @@ const UI_STRINGS = {
     log_in: "Entrar",
     forgot_password: "Esqueceu a palavra-passe?",
     sample_story_btn: "★ Ler uma história de exemplo",
-    trust_line: "7 dias de prova gratuita · Depois £3.99/mês · 10 histórias por semana · Sem anúncios",
+    trust_line: "7 dias grátis · Depois £3.99/mês · 10 histórias por semana · Sem anúncios",
     auth_legal: "Ao registar-se, aceita os nossos",
     auth_terms: "Termos",
     auth_and: "e a nossa",
@@ -1124,13 +1233,13 @@ const UI_STRINGS = {
     lang_hint: "Pode alterar isto a qualquer momento nas Definições",
     continue_btn: "Continuar",
     back_btn: "← Voltar",
-    paywall_title: "O seu período de prova terminou",
+    paywall_title: "Continue a magia",
     paywall_hint: "Continue a criar belas histórias para dormir personalizadas que o seu filho vai adorar.",
-    paywall_perk1: "10 histórias mágicas por semana",
+    paywall_perk1: "Até 2 histórias mágicas por noite",
     paywall_perk2: "História de Hoje, histórias Médias e Longas",
     paywall_perk3: "Biblioteca completa e continuidade de séries",
     paywall_perk4: "12 idiomas · Seguro · Sem anúncios",
-    subscribe_btn: "Subscrever — £3.99/mês",
+    subscribe_btn: "Subscrever — £4.99/mês",
     paywall_note: "As suas histórias guardadas ficam suas — legíveis a qualquer momento.",
     welcome_title: "Bem-vindo ao DreamTalez ★",
     welcome_hint: "Adicione o seu primeiro filho para começar a criar histórias mágicas.",
@@ -1283,7 +1392,7 @@ const UI_STRINGS = {
     log_in: "Anmelden",
     forgot_password: "Passwort vergessen?",
     sample_story_btn: "★ Eine Beispielgeschichte lesen",
-    trust_line: "7 Tage kostenlose Testversion · Dann £3.99/Monat · 10 Geschichten pro Woche · Keine Werbung",
+    trust_line: "7 Tage kostenlos · Dann £3.99/Monat · 10 Geschichten pro Woche · Keine Werbung",
     auth_legal: "Mit der Anmeldung stimmst du unseren",
     auth_terms: "Nutzungsbedingungen",
     auth_and: "und unserer",
@@ -1292,13 +1401,13 @@ const UI_STRINGS = {
     lang_hint: "Du kannst das jederzeit in den Einstellungen ändern",
     continue_btn: "Weiter",
     back_btn: "← Zurück",
-    paywall_title: "Deine kostenlose Testversion ist abgelaufen",
+    paywall_title: "Setze die Magie fort",
     paywall_hint: "Erstelle weiterhin personalisierte Gutenachtgeschichten, die dein Kind lieben wird.",
-    paywall_perk1: "10 magische Geschichten jede Woche",
+    paywall_perk1: "Bis zu 2 magische Geschichten jede Nacht",
     paywall_perk2: "Geschichte von Heute, Mittellange & Lange Geschichten",
     paywall_perk3: "Vollständige Story-Bibliothek & Serienkontinuität",
     paywall_perk4: "12 Sprachen · Sicher · Keine Werbung",
-    subscribe_btn: "Abonnieren — £3.99/Monat",
+    subscribe_btn: "Abonnieren — £4.99/Monat",
     paywall_note: "Deine gespeicherten Geschichten gehören dir — jederzeit lesbar.",
     welcome_title: "Willkommen bei DreamTalez ★",
     welcome_hint: "Füge dein erstes Kind hinzu, um magische Geschichten zu erstellen.",
@@ -1451,7 +1560,7 @@ const UI_STRINGS = {
     log_in: "Accedi",
     forgot_password: "Password dimenticata?",
     sample_story_btn: "★ Leggi una storia di esempio",
-    trust_line: "7 giorni di prova gratuita · Poi £3.99/mese · 10 storie a settimana · Nessuna pubblicità",
+    trust_line: "7 giorni gratis · Poi £3.99/mese · 10 storie a settimana · Nessuna pubblicità",
     auth_legal: "Registrandoti, accetti i nostri",
     auth_terms: "Termini",
     auth_and: "e la nostra",
@@ -1460,13 +1569,13 @@ const UI_STRINGS = {
     lang_hint: "Puoi cambiarlo in qualsiasi momento nelle Impostazioni",
     continue_btn: "Continua",
     back_btn: "← Indietro",
-    paywall_title: "La tua prova gratuita è terminata",
+    paywall_title: "Continua la magia",
     paywall_hint: "Continua a creare belle storie della buonanotte personalizzate che il tuo bambino amerà.",
-    paywall_perk1: "10 storie magiche ogni settimana",
+    paywall_perk1: "Fino a 2 storie magiche ogni notte",
     paywall_perk2: "Storia di Oggi, storie Medie e Lunghe",
     paywall_perk3: "Libreria completa e continuità delle serie",
     paywall_perk4: "12 lingue · Sicuro · Nessuna pubblicità",
-    subscribe_btn: "Abbonati — £3.99/mese",
+    subscribe_btn: "Abbonati — £4.99/mese",
     paywall_note: "Le tue storie salvate rimangono tue — leggibili in qualsiasi momento.",
     welcome_title: "Benvenuto su DreamTalez ★",
     welcome_hint: "Aggiungi il tuo primo bambino per iniziare a creare storie magiche.",
@@ -1619,7 +1728,7 @@ const UI_STRINGS = {
     log_in: "ログイン",
     forgot_password: "パスワードをお忘れですか？",
     sample_story_btn: "★ サンプルのお話を読む",
-    trust_line: "7日間無料体験 · その後 £3.99/月 · 週10話 · 広告なし",
+    trust_line: "7日間無料 · その後£3.99/月 · 週10話 · 広告なし",
     auth_legal: "登録することで以下に同意します：",
     auth_terms: "利用規約",
     auth_and: "および",
@@ -1628,13 +1737,13 @@ const UI_STRINGS = {
     lang_hint: "設定からいつでも変更できます",
     continue_btn: "続ける",
     back_btn: "← 戻る",
-    paywall_title: "無料体験が終了しました",
+    paywall_title: "魔法を続けよう",
     paywall_hint: "お子様が大好きなパーソナライズされた寝るためのお話を作り続けましょう。",
-    paywall_perk1: "毎週10話の魔法のようなお話",
+    paywall_perk1: "毎晩最大2話の魔法のようなお話",
     paywall_perk2: "今日のお話、中編・長編のお話",
     paywall_perk3: "完全なお話ライブラリとシリーズの継続",
     paywall_perk4: "12言語 · 安全 · 広告なし",
-    subscribe_btn: "サブスクリプションを始める — £3.99/月",
+    subscribe_btn: "サブスクリプションを始める — £4.99/月",
     paywall_note: "保存したお話はいつでも読めます。",
     welcome_title: "DreamTalez へようこそ ★",
     welcome_hint: "最初のお子様を追加して魔法のお話を作り始めましょう。",
@@ -1787,7 +1896,7 @@ const UI_STRINGS = {
     log_in: "登录",
     forgot_password: "忘记密码？",
     sample_story_btn: "★ 阅读示例故事",
-    trust_line: "7天免费试用 · 之后 £3.99/月 · 每周10个故事 · 无广告",
+    trust_line: "7天免费试用 · 之后£3.99/月 · 每周10个故事 · 无广告",
     auth_legal: "注册即表示您同意我们的",
     auth_terms: "服务条款",
     auth_and: "和",
@@ -1796,13 +1905,13 @@ const UI_STRINGS = {
     lang_hint: "您可以随时在设置中更改",
     continue_btn: "继续",
     back_btn: "← 返回",
-    paywall_title: "您的免费试用已结束",
+    paywall_title: "继续魔法之旅",
     paywall_hint: "继续创作孩子喜欢的个性化睡前故事。",
-    paywall_perk1: "每周10个神奇故事",
+    paywall_perk1: "每晚最多2个神奇故事",
     paywall_perk2: "今日故事、中篇和长篇故事",
     paywall_perk3: "完整故事库和系列连续性",
     paywall_perk4: "12种语言 · 安全 · 无广告",
-    subscribe_btn: "开始订阅 — £3.99/月",
+    subscribe_btn: "开始订阅 — £4.99/月",
     paywall_note: "您保存的故事永远属于您 — 随时可阅读。",
     welcome_title: "欢迎使用 DreamTalez ★",
     welcome_hint: "添加您的第一个孩子，开始创作神奇故事。",
@@ -1955,7 +2064,7 @@ const UI_STRINGS = {
     log_in: "تسجيل الدخول",
     forgot_password: "نسيت كلمة المرور؟",
     sample_story_btn: "★ قراءة قصة نموذجية",
-    trust_line: "7 أيام تجربة مجانية · ثم £3.99/شهر · 10 قصص أسبوعياً · بلا إعلانات",
+    trust_line: "تجربة مجانية 7 أيام · ثم £3.99/شهر · 10 قصص أسبوعياً · بلا إعلانات",
     auth_legal: "بالتسجيل، أنت توافق على",
     auth_terms: "شروط الخدمة",
     auth_and: "و",
@@ -1964,13 +2073,13 @@ const UI_STRINGS = {
     lang_hint: "يمكنك تغيير هذا في أي وقت من الإعدادات",
     continue_btn: "متابعة",
     back_btn: "رجوع →",
-    paywall_title: "انتهت فترة التجربة المجانية",
+    paywall_title: "استمر في السحر",
     paywall_hint: "استمر في إنشاء قصص نوم شخصية جميلة سيحبها طفلك.",
-    paywall_perk1: "10 قصص سحرية كل أسبوع",
+    paywall_perk1: "حتى قصتين سحريتين كل ليلة",
     paywall_perk2: "قصة اليوم، والقصص المتوسطة والطويلة",
     paywall_perk3: "مكتبة قصص كاملة واستمرارية السلاسل",
     paywall_perk4: "12 لغة · آمن · بلا إعلانات",
-    subscribe_btn: "ابدأ الاشتراك — £3.99/شهر",
+    subscribe_btn: "ابدأ الاشتراك — £4.99/شهر",
     paywall_note: "قصصك المحفوظة لك دائماً — يمكن قراءتها في أي وقت.",
     welcome_title: "مرحباً بك في DreamTalez ★",
     welcome_hint: "أضف طفلك الأول لبدء إنشاء قصص سحرية.",
@@ -2123,7 +2232,7 @@ const UI_STRINGS = {
     log_in: "लॉग इन करें",
     forgot_password: "पासवर्ड भूल गए?",
     sample_story_btn: "★ एक नमूना कहानी पढ़ें",
-    trust_line: "7 दिन का मुफ़्त ट्रायल · फिर £3.99/माह · प्रति सप्ताह 10 कहानियाँ · कोई विज्ञापन नहीं",
+    trust_line: "7 दिन मुफ़्त · फिर £3.99/माह · प्रति सप्ताह 10 कहानियाँ · कोई विज्ञापन नहीं",
     auth_legal: "साइन अप करके आप हमारी",
     auth_terms: "शर्तें",
     auth_and: "और",
@@ -2132,13 +2241,13 @@ const UI_STRINGS = {
     lang_hint: "आप इसे सेटिंग्स में कभी भी बदल सकते हैं",
     continue_btn: "जारी रखें",
     back_btn: "← वापस",
-    paywall_title: "आपका मुफ़्त ट्रायल समाप्त हो गया",
+    paywall_title: "जादू जारी रखें",
     paywall_hint: "व्यक्तिगत रात की कहानियाँ बनाते रहें जो आपके बच्चे को पसंद आएंगी।",
-    paywall_perk1: "हर हफ़्ते 10 जादुई कहानियाँ",
+    paywall_perk1: "हर रात 2 जादुई कहानियाँ तक",
     paywall_perk2: "आज की कहानी, मध्यम और लंबी कहानियाँ",
     paywall_perk3: "पूरी कहानी लाइब्रेरी और श्रृंखला की निरंतरता",
     paywall_perk4: "12 भाषाएं · सुरक्षित · कोई विज्ञापन नहीं",
-    subscribe_btn: "सदस्यता शुरू करें — £3.99/माह",
+    subscribe_btn: "सदस्यता शुरू करें — £4.99/माह",
     paywall_note: "आपकी सहेजी गई कहानियाँ हमेशा आपकी हैं — कभी भी पढ़ें।",
     welcome_title: "DreamTalez में आपका स्वागत है ★",
     welcome_hint: "जादुई कहानियाँ बनाना शुरू करने के लिए अपना पहला बच्चा जोड़ें।",
@@ -2291,7 +2400,7 @@ const UI_STRINGS = {
     log_in: "لاگ ان کریں",
     forgot_password: "پاس ورڈ بھول گئے؟",
     sample_story_btn: "★ ایک نمونہ کہانی پڑھیں",
-    trust_line: "7 دن کا مفت ٹرائل · پھر £3.99/ماہ · ہر ہفتے 10 کہانیاں · کوئی اشتہار نہیں",
+    trust_line: "7 دن مفت · پھر £3.99/ماہ · ہفتے میں 10 کہانیاں · کوئی اشتہار نہیں",
     auth_legal: "سائن اپ کر کے آپ ہماری",
     auth_terms: "شرائط",
     auth_and: "اور",
@@ -2300,13 +2409,13 @@ const UI_STRINGS = {
     lang_hint: "آپ یہ کسی بھی وقت ترتیبات میں تبدیل کر سکتے ہیں",
     continue_btn: "جاری رکھیں",
     back_btn: "واپس →",
-    paywall_title: "آپ کا مفت ٹرائل ختم ہو گیا",
+    paywall_title: "جادو جاری رکھیں",
     paywall_hint: "ذاتی رات کی کہانیاں بنانا جاری رکھیں جو آپ کا بچہ پسند کرے گا۔",
-    paywall_perk1: "ہر ہفتے 10 جادوئی کہانیاں",
+    paywall_perk1: "ہر رات 2 جادوئی کہانیاں تک",
     paywall_perk2: "آج کی کہانی، درمیانی اور لمبی کہانیاں",
     paywall_perk3: "مکمل کہانی لائبریری اور سیریز کا تسلسل",
     paywall_perk4: "12 زبانیں · محفوظ · کوئی اشتہار نہیں",
-    subscribe_btn: "سبسکرائب شروع کریں — £3.99/ماہ",
+    subscribe_btn: "سبسکرائب شروع کریں — £4.99/ماہ",
     paywall_note: "آپ کی محفوظ کہانیاں ہمیشہ آپ کی ہیں — کسی بھی وقت پڑھیں۔",
     welcome_title: "DreamTalez میں خوش آمدید ★",
     welcome_hint: "جادوئی کہانیاں بنانا شروع کرنے کے لیے اپنا پہلا بچہ شامل کریں۔",
@@ -2666,7 +2775,7 @@ async function saveStoryDialect(nextDialect) {
     cachedDialect = previousDialect;
     renderDialectControls();
     console.error("Saving dialect preference failed:", error);
-    alert(t("alert_lang_save_fail"));
+    showToast(t("alert_lang_save_fail"), "error");
   }
 }
 
@@ -6110,8 +6219,28 @@ function getTrialStatus() {
   return { active: false, expired: false, paid: true, daysLeft: Infinity, storiesLeft: Infinity };
 }
 
+function updatePackVisibility() {
+  const packBtn = document.getElementById("packBtn");
+  if (!packBtn) return;
+  const show = cachedIsPremium && cachedStoriesRemaining <= 5;
+  packBtn.classList.toggle("hidden", !show);
+}
+
+function renderPremiumUI() {
+  const container = $("premium-container");
+  if (!container) return;
+  if (cachedIsPremium) {
+    container.innerHTML = `<div class="premium-status">👑 Premium Active</div>`;
+  } else {
+    container.innerHTML = `<button class="premium-cta" onclick="handleSubscribe('subscription')">✨ Unlock Unlimited Stories</button>`;
+  }
+}
+
 /** Update the banner + paywall visibility based on current trial status. */
 function renderTrialState() {
+  renderPremiumUI();
+  updatePackVisibility();
+
   const banner = $("trialBanner");
   const paywall = $("paywallCard");
   if (!banner || !paywall) return;
@@ -6176,15 +6305,10 @@ async function recordStoryUsed() {
   return;
 }
 
-/** Placeholder subscribe handler (payment wiring comes later). */
-const STRIPE_ENABLED = false; // set true once Stripe keys are live on Render
-
-async function handleSubscribe() {
-  if (!STRIPE_ENABLED) {
-    alert("Payments are coming soon 🚀");
-    return;
-  }
-  const btn = $("subscribeBtn");
+async function handleSubscribe(type = "subscription") {
+  const isSub = type === "subscription";
+  const btn = $(isSub ? "subscribeBtn" : "oneOffBtn");
+  const originalText = btn?.textContent || "";
   if (btn) { btn.disabled = true; btn.textContent = "Loading…"; }
 
   try {
@@ -6192,21 +6316,55 @@ async function handleSubscribe() {
     const headers = { "Content-Type": "application/json" };
     if (token) headers["Authorization"] = `Bearer ${token}`;
 
-    const res = await fetch(`${API_BASE}/api/checkout`, { method: "POST", headers });
+    const res = await fetch(`${API_BASE}/api/checkout`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ type }),
+    });
     const data = await res.json();
 
     if (data.url) {
-      trackEvent("checkout_started");
+      trackEvent("checkout_started", { type });
       window.location.href = data.url;
+    } else if (data.disabled) {
+      showPaymentComingSoon();
     } else {
       throw new Error(data.error || "No checkout URL returned");
     }
   } catch (err) {
     console.error("Checkout error:", err);
-    alert("Could not start checkout. Please try again.");
+    showPaymentComingSoon();
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = t("subscribe_btn"); }
+    if (btn) { btn.disabled = false; btn.textContent = originalText; }
   }
+}
+
+function showPaymentComingSoon() {
+  const el = document.createElement("div");
+  el.className = "card coming-soon-toast";
+  el.style.cssText = "position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:9999;padding:14px 24px;text-align:center;";
+  el.textContent = "Payments coming soon — check back shortly!";
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+
+function showUpsell(childName) {
+  const name = childName || "your little one";
+  // Remove any existing upsell before showing a new one
+  document.querySelector(".upsell-card")?.remove();
+  const el = document.createElement("div");
+  el.className = "card upsell-card";
+  el.style.cssText = "position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9998;padding:32px;gap:12px;text-align:center;";
+  el.innerHTML = `
+    <h2>✨ That was ${name}'s adventure…</h2>
+    <p>There are so many more magical stories waiting.</p>
+    <p>Create beautiful bedtime stories every night.</p>
+    <button class="btn primary btn-lg" id="upsellSubBtn">Unlock Unlimited Stories — £4.99/month</button>
+    <button class="btn secondary" id="upsellDismissBtn">Maybe later</button>
+  `;
+  document.body.appendChild(el);
+  el.querySelector("#upsellSubBtn").addEventListener("click", () => { el.remove(); handleSubscribe("subscription"); });
+  el.querySelector("#upsellDismissBtn").addEventListener("click", () => el.remove());
 }
 
 /** Build a continuation header to prepend to customIdea on night 2+. */
@@ -8411,7 +8569,7 @@ async function deleteChildByIndex(index) {
     renderChildrenList();
   } catch (error) {
     console.error("Delete child failed:", error);
-    alert(t("alert_remove_child_fail"));
+    showToast(t("alert_remove_child_fail"), "error");
   }
 }
 
@@ -8419,19 +8577,38 @@ async function deleteChildByIndex(index) {
 // UI — Loading state
 // =============================================================================
 
-function showLoading(message = "✨ Creating your story...") {
+const LOADING_MESSAGES = [
+  "✨ Weaving a little magic...",
+  "🌙 Setting the scene for tonight...",
+  "📖 Choosing the perfect words...",
+  "🌟 Adding a sprinkle of wonder...",
+  "🦋 Letting the story breathe...",
+  "🌸 Almost ready for bedtime...",
+  "💫 Polishing the final lines...",
+  "🌙 Nearly there — something beautiful is coming...",
+];
+
+function showLoading(message = "✨ Weaving a little magic...") {
   const overlay = document.getElementById("loadingOverlay");
   const text = document.querySelector(".loading-text");
 
   if (text) text.textContent = message;
-
   document.body.style.overflow = "hidden";
   overlay?.classList.remove("hidden");
+
+  if (loadingInterval) clearInterval(loadingInterval);
+  let i = 0;
+  loadingInterval = setInterval(() => {
+    i = (i + 1) % LOADING_MESSAGES.length;
+    const el = document.querySelector(".loading-text");
+    if (el) el.textContent = LOADING_MESSAGES[i];
+  }, 3500);
 }
 
 function hideLoading() {
   const overlay = document.getElementById("loadingOverlay");
 
+  if (loadingInterval) { clearInterval(loadingInterval); loadingInterval = null; }
   document.body.style.overflow = "";
   overlay?.classList.add("hidden");
 }
@@ -8623,18 +8800,28 @@ function displayStory(title, text, context = {}) {
 
   if (storyOutput) renderStoryWithReveal(formatStory(text), getReadingMode());
 
-  // Only offer opt-in save for Quick Stories (Hero stories auto-save).
-  // Error-ish placeholders ("Oops!", the empty-output message) are not savable.
   if (saveLibBtn) {
     const isError = title === "Oops!" || !text || text.startsWith("No story was returned");
-    const isQuick = currentStoryMode === "random" || currentStoryMode === "" && title === "Quick Story";
-    saveLibBtn.classList.toggle("hidden", !(isQuick && !isError));
+    saveLibBtn.classList.toggle("hidden", isError);
     saveLibBtn.textContent = "★ Save to Library";
+    saveLibBtn.disabled = false;
   }
 
   if (storyCard) {
     storyCard.classList.remove("hidden");
     navigateTo("story");
+  }
+
+  // Gentle "what next" nudge — builds bedtime habit without pushing
+  setTimeout(() => {
+    if (currentPage === "story") showToast("🌙 Another story tomorrow… or continue the magic", "info");
+  }, 2500);
+
+  // Soft upsell — shown 30s after story displays, only for non-premium users
+  if (!cachedIsPremium) {
+    setTimeout(() => {
+      if (currentPage === "story") showUpsell(currentStoryChildName);
+    }, 30000);
   }
 }
 
@@ -8647,12 +8834,12 @@ async function signup() {
   const password = $("password")?.value || "";
 
   if (!email || !password) {
-    alert(t("alert_email_password"));
+    showToast(t("alert_email_password"), "error");
     return;
   }
 
   if (password.length < 6) {
-    alert(t("alert_password_length"));
+    showToast(t("alert_password_length"), "error");
     return;
   }
 
@@ -8675,7 +8862,7 @@ async function signup() {
       error.code === "auth/invalid-email" ? "Please enter a valid email address." :
       error.code === "auth/weak-password" ? "Password must be at least 6 characters." :
       "Signup failed. Please try again.";
-    alert(message);
+    showToast(message, "error");
   }
 }
 
@@ -8684,7 +8871,7 @@ async function login() {
   const password = $("password")?.value || "";
 
   if (!email || !password) {
-    alert(t("alert_email_password"));
+    showToast(t("alert_email_password"), "error");
     return;
   }
 
@@ -8697,7 +8884,7 @@ async function login() {
       error.code === "auth/wrong-password" ? "Incorrect password. Please try again." :
       error.code === "auth/invalid-credential" ? "Incorrect email or password." :
       "Login failed. Please try again.";
-    alert(message);
+    showToast(message, "error");
   }
 }
 
@@ -8715,22 +8902,22 @@ window.resetPassword = async function () {
   console.log("RESET EMAIL:", email);
 
   if (!email) {
-    alert("Enter your email first");
+    showToast("Enter your email first", "error");
     return;
   }
 
   try {
     await sendPasswordResetEmail(auth, email);
-    alert("Password reset email sent ✉️");
+    showToast("Password reset email sent ✉️", "success");
   } catch (err) {
     console.error("RESET ERROR:", err.code, err.message);
-    alert(err.message);
+    showToast(err.message, "error");
   }
 };
 
 async function deleteAccount() {
   if (!currentUser) {
-    alert(t("alert_delete_logged_in"));
+    showToast(t("alert_delete_logged_in"), "error");
     return;
   }
 
@@ -8743,13 +8930,13 @@ async function deleteAccount() {
 
   const confirm2 = prompt(t("alert_delete_confirm"));
   if (confirm2 !== "DELETE") {
-    alert(t("alert_delete_cancel"));
+    showToast(t("alert_delete_cancel"), "info");
     return;
   }
 
   const password = prompt(t("alert_delete_password"));
   if (!password) {
-    alert(t("alert_delete_cancel"));
+    showToast(t("alert_delete_cancel"), "info");
     return;
   }
 
@@ -8764,7 +8951,7 @@ async function deleteAccount() {
     // Delete the auth account itself
     await deleteUser(currentUser);
 
-    alert(t("alert_account_deleted"));
+    showToast(t("alert_account_deleted"), "success");
     // onAuthStateChanged will handle the UI return to the auth screen
   } catch (error) {
     console.error("Account deletion failed:", error);
@@ -8773,7 +8960,7 @@ async function deleteAccount() {
       error.code === "auth/invalid-credential" ? "Incorrect password. Account not deleted." :
       error.code === "auth/requires-recent-login" ? "For security, please log out, log back in, and try again." :
       "We couldn't delete your account. Please try again.";
-    alert(message);
+    showToast(message, "error");
   }
 }
 
@@ -8817,7 +9004,7 @@ function cancelEditChild() {
 
 async function saveChild() {
   if (!currentUser) {
-    alert(t("alert_delete_logged_in"));
+    showToast(t("alert_delete_logged_in"), "error");
     return;
   }
 
@@ -8841,14 +9028,14 @@ async function saveChild() {
     : null;
 
   if (!name) {
-    alert("Please enter your child's name");
+    showToast("Please enter your child's name", "error");
     return;
   }
 
   // Cap at 10 children per account — enough for big families + sleepover cousins
   const MAX_CHILDREN = 10;
   if (editingChildIndex === null && cachedChildren.length >= MAX_CHILDREN) {
-    alert(t("alert_max_children", { max: MAX_CHILDREN }));
+    showToast(t("alert_max_children", { max: MAX_CHILDREN }), "error");
     return;
   }
 
@@ -8900,7 +9087,7 @@ async function saveChild() {
     if (cachedChildren.length === 1) selectedChildIndex = 0;
   } catch (error) {
     console.error("Save child failed:", error);
-    alert(t("alert_save_child_fail"));
+    showToast(t("alert_save_child_fail"), "error");
   }
 }
 
@@ -8920,6 +9107,8 @@ async function loadChildren() {
     cachedSeries = data.series && typeof data.series === "object" ? data.series : {};
     cachedTrial = data.trial && typeof data.trial === "object" ? data.trial : null;
     cachedDialect = normalizeDialect(data.storyLocale || data.storyDialect);
+    cachedIsPremium = !!(data.isPremium || data.isSubscribed);
+    cachedStoriesRemaining = typeof data.storiesRemaining === "number" ? data.storiesRemaining : 0;
     await ensureTrialInitialised();
 
     // Clamp selected index
@@ -9072,13 +9261,14 @@ function renderLibrary() {
   if (items.length === 0) {
     if (hint) hint.textContent = "";
     const emptyDiv = document.createElement("div");
-    emptyDiv.className = "library-empty";
-    emptyDiv.innerHTML = `
-      <div class="library-empty-icon">📚</div>
-      <h3 class="library-empty-title">${t("empty_library_title")}</h3>
-      <p class="library-empty-hint">${name ? t("empty_library_hint") : "Add a child to see their stories."}</p>
-      ${name ? `<button class="library-empty-cta" onclick="navigateTo('home')">${t("empty_library_cta")}</button>` : ""}
-    `;
+    emptyDiv.className = "empty-state";
+    emptyDiv.innerHTML = name
+      ? `<h2>🌙 No stories yet</h2>
+         <p>Your child's first adventure is waiting to begin.</p>
+         <button class="btn primary" onclick="navigateTo('home')">Create their first story</button>`
+      : `<h2>🌙 No stories yet</h2>
+         <p>Add a child profile to start creating magical bedtime stories.</p>
+         <button class="btn primary" onclick="navigateTo('children')">Add a child</button>`;
     list.appendChild(emptyDiv);
     return;
   }
@@ -9165,10 +9355,7 @@ async function saveStoryToLibrary({ childName, title, text, mode }) {
 async function saveCurrentStoryToLibrary() {
   const btn = $("saveToLibraryBtn");
   if (!currentStoryText || !currentStoryChildName) {
-    if (btn) {
-      btn.textContent = t("pick_child_first");
-      setTimeout(() => (btn.textContent = t("save_to_library")), 1800);
-    }
+    showToast("Choose a child profile first ✨", "error");
     return;
   }
 
@@ -9177,10 +9364,7 @@ async function saveCurrentStoryToLibrary() {
     (s) => s.childName === currentStoryChildName && s.text === currentStoryText
   );
   if (dupe) {
-    if (btn) {
-      btn.textContent = t("already_saved");
-      setTimeout(() => (btn.textContent = t("save_to_library")), 1800);
-    }
+    showToast("This story is already in your library ✨", "info");
     return;
   }
 
@@ -9191,9 +9375,15 @@ async function saveCurrentStoryToLibrary() {
     mode: currentStoryMode || "random",
   });
 
-  if (btn) {
-    btn.textContent = ok ? t("saved") : t("could_not_save");
-    setTimeout(() => (btn.textContent = "★ Save to Library"), 1800);
+  if (ok) {
+    showToast("✨ Story saved. That was beautiful.", "success");
+    setTimeout(() => showToast(`Sweet dreams, ${currentStoryChildName} 🌙`, "success"), 1800);
+    if (btn) {
+      btn.textContent = "✓ Saved";
+      btn.disabled = true;
+    }
+  } else {
+    showToast("Could not save — please try again", "error");
   }
 }
 
@@ -9216,7 +9406,7 @@ async function deleteFromLibrary(id) {
     console.error("Library delete failed:", error);
     cachedLibrary = prev;
     renderLibrary();
-    alert(t("alert_remove_story_fail"));
+    showToast(t("alert_remove_story_fail"), "error");
   }
 }
 
@@ -9284,6 +9474,14 @@ async function handleGenerate(input) {
   let situation = input?.situation || "";
 
   if (isGenerating) return;
+
+  const now = Date.now();
+  if (now - lastGenerationTime < COOLDOWN_MS) {
+    showToast("🌙 Just a moment… finishing the magic", "info");
+    return;
+  }
+  lastGenerationTime = now;
+
   setGeneratingState(true);
 
   applyModeUI(mode);
@@ -9327,19 +9525,48 @@ async function handleGenerate(input) {
   let payload;
   let buttonId;
 
+  // Hero quick-card mode: one-tap personalised hero story.
+  if (mode === "hero") {
+    const child = getSelectedChild();
+    if (!child.name || child.name === "a little one") {
+      showToast(t("alert_add_child"), "error");
+      generationInProgress = false;
+      return;
+    }
+
+    const baseInterests = child.interests?.length
+      ? child.interests.join(", ")
+      : pick(interestsByAge[getAgeGroup(child.age || 5)]);
+    const interests = enrichInterestsWithContext(baseInterests, child);
+    const heroIdea = `${formatName(child.name)} is the hero of a magical journey where they make brave and kind choices.`;
+
+    payload = {
+      name: formatName(child.name),
+      age: String(child.age || 5),
+      interests,
+      length: "medium",
+      mode: "hero",
+      storyType: "hero",
+      language: getCurrentLanguage(), dialect: cachedDialect,
+      customIdea: heroIdea,
+      appearance: child.appearance || undefined,
+      personalWorld: buildPersonalWorld(child),
+    };
+    buttonId = null;
+  }
   // Support new custom/therapeutic modes from Custom Story screen
-  if (mode === "custom" || mode === "therapeutic") {
+  else if (mode === "custom" || mode === "therapeutic") {
     // { mode: "custom", idea } or { mode: "therapeutic", situation }
     const child = getSelectedChild();
     if (!child.name || child.name === "a little one") {
-      alert(t("alert_add_child"));
+      showToast(t("alert_add_child"), "error");
       generationInProgress = false;
       return;
     }
     if (mode === "custom") {
       const rawIdea = (idea || "").trim();
       if (!rawIdea) {
-        alert(t("alert_add_idea"));
+        showToast(t("alert_add_idea"), "error");
         generationInProgress = false;
         return;
       }
@@ -9370,7 +9597,7 @@ async function handleGenerate(input) {
     } else if (mode === "therapeutic") {
       const therapeuticSituation = (situation || "").trim();
       if (!therapeuticSituation) {
-        alert("Please enter a situation or feeling.");
+        showToast("Please enter a situation or feeling.", "error");
         generationInProgress = false;
         return;
       }
@@ -9406,7 +9633,7 @@ async function handleGenerate(input) {
     // ---- Story from Today: weave real day-beats into a gentle story ----
     const child = getSelectedChild();
     if (!child.name || child.name === "a little one") {
-      alert(t("alert_add_child"));
+      showToast(t("alert_add_child"), "error");
       generationInProgress = false;
       return;
     }
@@ -9414,7 +9641,7 @@ async function handleGenerate(input) {
     const dayMood = $("todayMood")?.value || "";
 
     if (!dayBeats) {
-      alert(t("alert_add_beats"));
+      showToast(t("alert_add_beats"), "error");
       generationInProgress = false;
       return;
     }
@@ -9450,7 +9677,7 @@ async function handleGenerate(input) {
     // ---- Surprise Me: random idea, child from profile ----
     const child = getSelectedChild();
     if (!child.name || child.name === "a little one") {
-      alert(t("alert_add_child"));
+      showToast(t("alert_add_child"), "error");
       generationInProgress = false;
       return;
     }
@@ -9500,13 +9727,13 @@ async function handleGenerate(input) {
     // ---- My Idea: parent's idea, child from profile ----
     const child = getSelectedChild();
     if (!child.name || child.name === "a little one") {
-      alert(t("alert_add_child"));
+      showToast(t("alert_add_child"), "error");
       generationInProgress = false;
       return;
     }
     const rawIdea = ($("createIdea")?.value || "").trim();
     if (!rawIdea) {
-      alert(t("alert_add_idea"));
+      showToast(t("alert_add_idea"), "error");
       generationInProgress = false;
       return;
     }
@@ -9542,6 +9769,12 @@ async function handleGenerate(input) {
     return;
   }
 
+  // Save theme for continuity hint on next session
+  try {
+    const theme = payload.customIdea || payload.dayBeats || payload.interests || mode;
+    if (theme && theme !== mode) localStorage.setItem("dt-lastTheme", String(theme).slice(0, 60));
+  } catch {}
+
   // ---- Shared AI generation flow ----
   const button = $(buttonId);
   const originalText = button?.textContent || "";
@@ -9554,7 +9787,7 @@ async function handleGenerate(input) {
   try {
     // Block if not enough teddies (frontend UX, backend is source of truth)
     if (teddyCount !== null && teddyCount === 0) {
-      alert("All your teddies have been used tonight! Come back tomorrow or add more for 99p 🧸");
+      showToast("🌙 Tonight's stories are complete — come back tomorrow for more magic", "info");
       generationInProgress = false;
       return;
     }
@@ -9580,7 +9813,7 @@ async function handleGenerate(input) {
         // Teddy currency block
         teddyCount = 0;
         updateTeddyCounterUI();
-        alert("All your teddies have been used tonight! Come back tomorrow or add more for 99p 🧸");
+        showToast("🌙 Tonight's stories are complete — come back tomorrow for more magic", "info");
         if (button) { button.disabled = false; button.textContent = originalText; }
         generationInProgress = false;
         return;
@@ -9622,7 +9855,7 @@ async function handleGenerate(input) {
     const title = applyDialectToText(data?.title || `${payload.name}'s Bedtime Story`, getCurrentLanguage());
 
     const storyChildName = getSelectedChild()?.name || payload.name;
-    const storyMode = mode === "create" ? "hero" : mode === "today" ? "today" : "random";
+    const storyMode = (mode === "create" || mode === "hero") ? "hero" : mode === "today" ? "today" : "random";
     displayStory(title, story, { childName: storyChildName, mode: storyMode });
 
     // Auto-save bespoke stories (Create/Hero + Today) — both are personal keepsakes.
@@ -9645,7 +9878,7 @@ async function handleGenerate(input) {
     }
 
     // Clear create idea input after generation
-    if (mode === "create") {
+    if (mode === "create" || mode === "hero") {
       const ideaInput = $("createIdea");
       if (ideaInput) ideaInput.value = "";
     }
@@ -9700,7 +9933,7 @@ async function handleGenerate(input) {
     if (window.StoryCache) {
       try {
         const offlineChild = getSelectedChild();
-        const offlineMode = mode === "create" ? "hero" : mode === "long-surprise" ? "long" : "medium";
+        const offlineMode = (mode === "create" || mode === "hero") ? "hero" : mode === "long-surprise" ? "long" : "medium";
         const cached = await window.StoryCache.claimCachedStory(
           offlineChild?.name || "",
           offlineMode
@@ -9751,6 +9984,20 @@ async function handleGenerate(input) {
         requestedLength: createLength,
       };
       fallbackMode = "hero";
+    } else if (mode === "hero") {
+      heroIdea = `${selectedChild?.name || "The child"} is the hero of a magical journey where they make brave and kind choices.`;
+      const heroInterestsBase = selectedChild?.interests?.length
+        ? selectedChild.interests
+        : [heroIdea];
+      fallbackChild = {
+        name: selectedChild?.name || "a little one",
+        age: Number(selectedChild?.age) || 5,
+        gender: selectedChild?.gender || "neutral",
+        interests: heroInterestsBase,
+        customIdea: heroIdea,
+        requestedLength: "medium",
+      };
+      fallbackMode = "hero";
     }
 
     fallbackChild = {
@@ -9775,7 +10022,7 @@ async function handleGenerate(input) {
     const heroFallbackChild = heroIdea
       ? { ...fallbackChild, interests: [heroIdea] }
       : fallbackChild;
-    const isHeroMode = mode === "create";
+    const isHeroMode = mode === "create" || mode === "hero";
     const selectedWorld = isHeroMode
       ? (heroIdea ? (findQuickWishMatchedWorld(heroIdea, heroFallbackChild) || pickSuitableWorld(heroFallbackChild)) : pickSuitableWorld(fallbackChild))
       : pickSuitableWorld(fallbackChild);
@@ -9861,7 +10108,9 @@ async function handleGenerate(input) {
   }
   } catch (err) {
     console.error("Generation failed:", err);
-    alert("Something went wrong. Please try again.");
+    showToast(err?.message?.startsWith("🌙") || err?.message?.startsWith("✨")
+      ? err.message
+      : "Something went wrong — please try again ✨", "error");
   } finally {
     const elapsed = Date.now() - startTime;
     const minDuration = 700;
@@ -9958,6 +10207,14 @@ onAuthStateChanged(auth, async (user) => {
     navigateTo("home");
     checkReturnUser();
     trackEvent("app_opened");
+
+    // Light continuity — remind returning users of their last theme
+    try {
+      const lastTheme = localStorage.getItem("dt-lastTheme");
+      if (lastTheme && localStorage.getItem("dt-first-story")) {
+        setTimeout(() => showToast(`✨ Continue the ${lastTheme} adventure?`, "info"), 1800);
+      }
+    } catch {}
     // Second-session retention metric — fires once per user on their return visit
     if (localStorage.getItem("dt-first-story") && !localStorage.getItem("dt-returned-once")) {
       localStorage.setItem("dt-returned-once", "1");
@@ -10016,6 +10273,16 @@ if (dialectAmericanBtn) {
 window.navigateTo = navigateTo;
 window.closeStoryCard = closeStoryCard;
 window.handleGenerate = handleGenerate;
+window.handleSubscribe = handleSubscribe;
+window.showUpsell = showUpsell;
+window.buyOneStory = () => handleSubscribe("one-off");
+window.buyPremium = () => handleSubscribe("subscription");
+window.buyPack   = () => handleSubscribe("pack");
+
+const _subBtn = $("subscribeBtn");
+if (_subBtn) _subBtn.addEventListener("click", () => handleSubscribe("subscription"));
+const _oneOffBtn = $("oneOffBtn");
+if (_oneOffBtn) _oneOffBtn.addEventListener("click", () => handleSubscribe("one-off"));
 
 // Story card click handlers — attached via JS as well as onclick for reliability
 document.querySelector(".card-purple")?.addEventListener("click", () => handleGenerate("medium-surprise"));

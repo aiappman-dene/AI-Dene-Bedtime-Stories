@@ -34,13 +34,29 @@ import helmet from "helmet";
 import compression from "compression";
 import { applicationDefault, cert, getApps, initializeApp as initializeAdminApp } from "firebase-admin/app";
 import { getAuth as getAdminAuth } from "firebase-admin/auth";
-import { getFirestore } from "firebase-admin/firestore";
+import { getFirestore, FieldValue } from "firebase-admin/firestore";
 
-// ✅ Rate limiter for /generate
+// ✅ Rate limiter for /generate (IP-based)
 const generateLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 10,
 });
+
+// Per-user sliding window rate limiter (in-memory, resets on restart)
+const userRequests = new Map();
+const activeRequests = new Set();
+
+function isRateLimited(userId) {
+  const now = Date.now();
+  const windowMs = 10000;
+  const maxRequests = 3;
+
+  const timestamps = (userRequests.get(userId) || []).filter(t => now - t < windowMs);
+  timestamps.push(now);
+  userRequests.set(userId, timestamps);
+
+  return timestamps.length > maxRequests;
+}
 
 // =============================
 // Middleware definitions
@@ -77,6 +93,7 @@ import {
   assertStoryQuality,
   isStoryValid,
 } from "./story-quality.js";
+import { createCheckoutSession, handleWebhook } from "./stripe.js";
 
 // =============================================================================
 // Environment / config
@@ -94,8 +111,7 @@ const USE_FULL_AI_PIPELINE = process.env.USE_FULL_AI_PIPELINE === "true" || proc
 // App init
 // =============================
 const app = express();
-// Attach limiter before any /generate route
-app.use('/generate', generateLimiter);
+// generateLimiter is applied per-route below (not globally) to avoid double-firing
 
 
 // =============================
@@ -109,20 +125,6 @@ app.use(corsMiddleware);
 
 
 
-
-// =============================================================================
-// Teddy Currency System — Constants
-// =============================================================================
-const TEDDY_DAILY_GRANT = 10;
-const TEDDY_MAX = 30;
-const TEDDY_TOPUP_AMOUNT = 20;
-const TEDDY_TOPUP_PRICE = 0.99; // GBP
-const TEDDY_COSTS = {
-  quick: 3,
-  magic: 5,
-  sleepy: 3,
-  custom: 4,
-};
 
 function normalizeGenerateMode(mode) {
   switch (mode) {
@@ -138,25 +140,6 @@ function normalizeGenerateMode(mode) {
   }
 }
 
-function deriveStoryTypeFromMode(mode) {
-  switch (mode) {
-    case "sleepy":
-      return "sleepy";
-    case "long-surprise":
-      return "magic";
-    case "therapeutic":
-    case "custom":
-      return "custom";
-    default:
-      return "quick";
-  }
-}
-
-// Helper: Log teddy currency events
-function logTeddyEvent(uid, msg) {
-  logEvent(`[TEDDY] uid=${uid}: ${msg}`);
-}
-
 // Helper: Hash an IP address for rate-limit key generation
 function ipKeyGenerator(ip) {
   return crypto.createHash("sha256").update(ip || "").digest("hex").substring(0, 16);
@@ -167,7 +150,7 @@ function getStoryTokenBudget(length, stage, dialect) {
   const isNonEnglish = dialect && !["en", "en-GB", "en-US", "en-gb", "en-us"].includes(dialect);
   const budgets = {
     short:  { story: 700,  editor: 700,  validator: 700,  title: 40,  delivery: 600 },
-    medium: { story: 1400, editor: 1400, validator: 1400, title: 40,  delivery: 1200 },
+    medium: { story: 1200, editor: 1200, validator: 1200, title: 40,  delivery: 1000 },
     long:   { story: 3200, editor: 3200, validator: 3200, title: 40,  delivery: 2800 },
   };
   const row = budgets[length] ?? budgets.medium;
@@ -176,92 +159,84 @@ function getStoryTokenBudget(length, stage, dialect) {
   return isNonEnglish ? Math.ceil(base * 1.15) : base;
 }
 
-// Helper: Check and spend teddies for a story generation
-async function checkAndSpendTeddies(uid, storyType) {
-  const cost = TEDDY_COSTS[storyType] ?? TEDDY_COSTS.quick;
-  const { ref, data } = await getTeddyDoc(uid);
-  let { teddies_remaining, teddies_lifetime_spent, teddies_lifetime_earned, last_reset } = data;
-
-  // Daily grant: top up at midnight UTC
-  if (isNewDay(last_reset || new Date(0).toISOString())) {
-    const newGrant = Math.min(TEDDY_DAILY_GRANT, TEDDY_MAX - (teddies_remaining || 0));
-    if (newGrant > 0) {
-      teddies_remaining = (teddies_remaining || 0) + newGrant;
-      teddies_lifetime_earned = (teddies_lifetime_earned || 0) + newGrant;
-      logTeddyEvent(uid, `Daily grant: +${newGrant} (now ${teddies_remaining})`);
-    }
-    last_reset = new Date().toISOString();
-  }
-
-  if ((teddies_remaining || 0) < cost) {
-    throw new Error("not_enough_teddies");
-  }
-
-  teddies_remaining -= cost;
-  teddies_lifetime_spent = (teddies_lifetime_spent || 0) + cost;
-
-  await ref.update({ teddies_remaining, teddies_lifetime_spent, teddies_lifetime_earned, last_reset });
-  logTeddyEvent(uid, `Spent ${cost} for "${storyType}" (${teddies_remaining} left)`);
-}
-
 // Helper: Get Firestore instance
 function getFirestoreDb() {
   if (!getApps().length) getAdminAuth(); // ensure admin initialized
   return getFirestore();
 }
 
-// Helper: Get teddy doc for family (by UID)
-async function getTeddyDoc(uid) {
-  const db = getFirestoreDb();
-  const ref = db.collection("families").doc(uid);
-  let doc = await ref.get();
-  if (!doc.exists) {
-    // Create default teddy doc
-    await ref.set({
-      teddies_remaining: TEDDY_DAILY_GRANT,
-      teddies_last_reset: Date.now(),
-      teddies_lifetime_earned: TEDDY_DAILY_GRANT,
-      teddies_lifetime_spent: 0,
-      cached_stories: [],
-    });
-    doc = await ref.get();
-  }
-  return { ref, data: doc.data() };
+// =============================================================================
+// Subscription helpers
+// =============================================================================
+
+function addOneMonth(ts) {
+  const d = new Date(ts);
+  d.setMonth(d.getMonth() + 1);
+  return d.getTime();
 }
 
-// Helper: Midnight reset logic
-function isNewDay(lastReset) {
-  const last = new Date(lastReset);
-  const now = new Date();
-  return last.getUTCFullYear() !== now.getUTCFullYear() || last.getUTCMonth() !== now.getUTCMonth() || last.getUTCDate() !== now.getUTCDate();
+// Idempotent monthly reset — safe to call on every generate request.
+// Returns the (possibly updated) user data so callers avoid a second DB read.
+async function ensureSubscriptionFresh(uid, userData, db) {
+  if (!userData.isSubscribed) return userData;
+  if (Date.now() < (userData.subscriptionEndDate || 0)) return userData;
+
+  const now = Date.now();
+  const reset = {
+    storiesRemaining: 62,
+    subscriptionStartDate: now,
+    subscriptionEndDate: addOneMonth(now),
+  };
+  await db.collection("users").doc(uid).set(reset, { merge: true });
+  logEvent(`[SUBSCRIPTION] Monthly reset for ${uid}`);
+  return { ...userData, ...reset };
 }
 
-// Teddy: Top-up endpoint (Stripe integration placeholder)
-app.post("/api/teddy-topup", requireAiAuth, async (req, res) => {
-  try {
-    const uid = req.authUser?.uid;
-    if (!uid) return res.status(401).json({ error: "Not authenticated" });
-    const { ref, data } = await getTeddyDoc(uid);
-    let { teddies_remaining, teddies_lifetime_earned } = data;
-    const add = Math.min(TEDDY_TOPUP_AMOUNT, TEDDY_MAX - (teddies_remaining || 0));
-    if (add <= 0) return res.status(400).json({ error: "Teddy cap reached" });
-    teddies_remaining += add;
-    teddies_lifetime_earned += add;
-    await ref.update({ teddies_remaining, teddies_lifetime_earned });
-    logTeddyEvent(uid, `Top-up: +${add} teddies (now ${teddies_remaining})`);
-    // TODO: Integrate Stripe payment/receipt
-    res.json({ ok: true, teddies_remaining });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
+// Consume one story credit — checks access and deducts atomically.
+// Returns { ok, consumed, message }.
+async function consumeStory(uid, userData, db) {
+  if (!userData.isSubscribed) {
+    if (userData.oneOffAvailable) {
+      await db.collection("users").doc(uid).update({ oneOffAvailable: false });
+      return { ok: true, consumed: "oneOff" };
+    }
+    return { ok: false, message: "✨ Unlock a story to begin your child's adventure" };
   }
-});
+
+  if ((userData.storiesRemaining || 0) > 0) {
+    await db.collection("users").doc(uid).update({ storiesRemaining: FieldValue.increment(-1) });
+    return { ok: true, consumed: "storiesRemaining" };
+  }
+
+  if ((userData.extraStoryCredits || 0) > 0) {
+    await db.collection("users").doc(uid).update({ extraStoryCredits: FieldValue.increment(-1) });
+    return { ok: true, consumed: "extraStoryCredits" };
+  }
+
+  return {
+    ok: false,
+    message: "🌙 Tonight's stories are complete. Continue the magic with 10 more stories, or rest until tomorrow.",
+  };
+}
+
+// Reverse a consumption on pipeline failure so users aren't charged for broken generations.
+async function refundStory(uid, consumed, db) {
+  if (!consumed) return;
+  if (consumed === "oneOff") {
+    await db.collection("users").doc(uid).update({ oneOffAvailable: true });
+  } else {
+    await db.collection("users").doc(uid).update({ [consumed]: FieldValue.increment(1) });
+  }
+  logEvent(`[REFUND] ${consumed} refunded for ${uid}`);
+}
 
 
 
-  // Teddy-aware story generation endpoint
+  // Story generation endpoint
   app.post(
     "/generate",
     corsMiddleware,
+    express.json({ limit: "10kb" }),
     requireAiAuth,
     generateLimiter,
     [
@@ -280,7 +255,6 @@ app.post("/api/teddy-topup", requireAiAuth, async (req, res) => {
       body("dayMood").optional().isString().isLength({ max: 40 }).trim(),
       body("language").optional().isString().isLength({ max: 10 }).trim(),
       body("globalInspiration").optional().isArray({ max: 10 }),
-      body("storyType").optional().isIn(["quick", "magic", "sleepy", "custom"]),
       body("gender").optional().isString().isLength({ max: 20 }).trim(),
       body("siblings").optional().isString().isLength({ max: 100 }).trim(),
       body("family").optional().isString().isLength({ max: 100 }).trim(),
@@ -302,7 +276,6 @@ app.post("/api/teddy-topup", requireAiAuth, async (req, res) => {
         const cleanInterests = sanitizeInput(interests);
         const incomingMode = mode;
         const normalizedMode = normalizeGenerateMode(incomingMode);
-        const cleanStoryType = storyType || deriveStoryTypeFromMode(incomingMode);
         // `language` takes priority over legacy `dialect`.
         // Resolve to a canonical code (e.g. "ja", "ar", "en-GB").
         const cleanLanguage = language
@@ -353,16 +326,36 @@ app.post("/api/teddy-topup", requireAiAuth, async (req, res) => {
           return res.status(400).json({ error: "Invalid input detected." });
         }
 
-        // TEDDY CURRENCY: Check and spend teddies before generating
+        // PAYMENT GATE
         const uid = req.authUser?.uid;
-        if (!uid) return res.status(401).json({ error: "Not authenticated" });
-        try {
-          await checkAndSpendTeddies(uid, cleanStoryType);
-        } catch (err) {
-          if (err.message === "not_enough_teddies") {
-            return res.status(402).json({ error: "All your teddies have been used tonight! Come back tomorrow or add more for 99p 🧸", teddies: 0 });
-          }
-          throw err;
+        if (!uid) {
+          return res.status(401).json({ error: "Please log in to generate stories." });
+        }
+
+        // Duplicate request guard — one active generation per user at a time
+        if (activeRequests.has(uid)) {
+          return res.status(429).json({ error: "✨ Your story is already being created" });
+        }
+
+        // Per-user rate limit — max 3 requests per 10s window
+        if (isRateLimited(uid)) {
+          return res.status(429).json({ error: "🌙 Let the story settle before creating another" });
+        }
+
+        activeRequests.add(uid);
+
+        const db = getFirestoreDb();
+        const userSnap = await db.collection("users").doc(uid).get();
+        let userData = userSnap.exists ? userSnap.data() : {};
+
+        // Monthly subscription reset (idempotent — no-op if still in window)
+        userData = await ensureSubscriptionFresh(uid, userData, db);
+
+        // Consume story credit (checks access, deducts atomically)
+        const consumption = await consumeStory(uid, userData, db);
+        if (!consumption.ok) {
+          activeRequests.delete(uid);
+          return res.status(403).json({ error: consumption.message });
         }
 
         logEvent(`Generating ${incomingMode} story for \"${cleanName}\" (normalized=${normalizedMode}, age ${cleanAge}), interests: \"${cleanInterests}\"${cleanIdea ? `, idea: \"${cleanIdea}\"` : ""}${cleanWish ? `, wish: \"${cleanWish}\"` : ""}, length: ${length}, dialect: ${cleanDialect}`);
@@ -393,10 +386,17 @@ app.post("/api/teddy-topup", requireAiAuth, async (req, res) => {
         res.json({ jobId });
 
         // Run pipeline in background — result stored in jobStore for client to poll.
-        runStoryPipeline(storyInputs, { mode: normalizedMode, cleanName, cleanDialect, cleanInterests, cleanIdea, cleanWish, cleanSeriesContext, cleanBeats, length })
-          .then(({ story, title }) => resolveJob(jobId, story, title))
-          .catch((err) => {
+        runStoryPipeline(storyInputs, { mode: normalizedMode, rawMode: incomingMode, cleanName, cleanDialect, cleanInterests, cleanIdea, cleanWish, cleanSeriesContext, cleanBeats, length })
+          .then(({ story, title }) => {
+            resolveJob(jobId, story, title);
+            activeRequests.delete(uid);
+          })
+          .catch(async (err) => {
             logEvent(`Pipeline error for job ${jobId}: ${err.message}`);
+            activeRequests.delete(uid);
+            await refundStory(uid, consumption.consumed, db).catch(e =>
+              logEvent(`Refund error for ${uid}: ${e.message}`)
+            );
             failJob(jobId, "story_failed");
           });
 
@@ -525,6 +525,51 @@ function getSafeFallbackStory(name) {
   return `${name} snuggled into bed as the stars twinkled softly above.\n\nTonight was a peaceful night filled with gentle dreams, kind thoughts, and a quiet sense of magic.\n\nAs the moon smiled down, ${name} drifted into a calm and happy sleep, ready for a new adventure tomorrow.`;
 }
 
+function enforceLength(text) {
+  const words = text.split(" ");
+  if (words.length > 1100) {
+    return words.slice(0, 1100).join(" ");
+  }
+  return text;
+}
+
+function cleanStory(text) {
+  return text.replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function polishStory(text) {
+  return text
+    .replace(/[ \t]{2,}/g, " ")   // collapse multiple spaces/tabs (preserve newlines)
+    .replace(/\n{3,}/g, "\n\n")   // collapse triple+ newlines to double
+    .trim();
+}
+
+function validateStoryQuality(text) {
+  if (!text) return false;
+
+  const wordCount = text.split(" ").length;
+
+  // Too short = weak or incomplete story
+  if (wordCount < 850) return false;
+
+  // Too long = cost risk / rambling
+  if (wordCount > 1150) return false;
+
+  // Must contain paragraph structure
+  if (!text.includes("\n")) return false;
+
+  // Weak ending detection — check last 300 chars
+  const lastPart = text.slice(-300).toLowerCase();
+  const weakEndings = [
+    "the end",
+    "and then they went home",
+    "it was all a dream",
+  ];
+  if (weakEndings.some(p => lastPart.includes(p))) return false;
+
+  return true;
+}
+
 function isStoryOutputSafe(story) {
   if (!story) return false;
   return !SAFETY_PATTERN.test(story);
@@ -596,7 +641,7 @@ function getModelConfig({ mode, length } = {}) {
     case "long":
       return { model: CLAUDE_MODEL_SONNET, temperature: 0.8 };
     case "medium":
-      return { model: CLAUDE_MODEL_HAIKU,  temperature: 0.85 };
+      return { model: CLAUDE_MODEL_HAIKU,  temperature: 0.75 };
     case "short":
     default:
       return { model: CLAUDE_MODEL_HAIKU,  temperature: 0.9 };
@@ -867,16 +912,14 @@ app.post(
       }
 
       const { story, dialect, mode } = req.body;
-      const cleanDialect = normalizeStoryLocale(dialect);
+      const cleanDialect = resolveLanguageCode(dialect);
       const polishMode = mode === "rewrite" ? "rewrite" : "edit";
 
       logEvent(`Polish endpoint: ${polishMode} pass on procedural story`);
 
       // Rewrite mode = aggressive Disney-grade rewrite of a rough procedural
       // draft. Edit mode = conservative grammar/flow pass on an AI story.
-      const polishSystem = polishMode === "rewrite"
-        ? REWRITE_SYSTEM_PROMPT
-        : EDITOR_SYSTEM_PROMPT;
+      const polishSystem = EDITOR_SYSTEM_PROMPT;
       // In rewrite mode we frame the draft as a story brief so Sonnet
       // treats it as a spec to discard rather than text worth preserving.
       const polishPrompt = polishMode === "rewrite"
@@ -916,12 +959,17 @@ app.post(
 // =============================================================================
 
 // =============================================================================
-// Stripe — subscription checkout
+// Stripe — checkout + webhook
 // =============================================================================
 
 app.options("/api/checkout", corsMiddleware);
-app.post("/api/checkout", corsMiddleware, (req, res) => {
-  res.json({ disabled: true, message: "Payments coming soon" });
+app.post("/api/checkout", corsMiddleware, express.json({ limit: "4kb" }), requireAiAuth, (req, res) => {
+  createCheckoutSession(req, res);
+});
+
+// Webhook must use raw body — register BEFORE any global json middleware
+app.post("/api/webhook", express.raw({ type: "application/json" }), (req, res) => {
+  handleWebhook(req, res);
 });
 
 // =============================================================================
@@ -938,123 +986,15 @@ app.post("/track", corsMiddleware, express.json({ limit: "4kb" }), (req, res) =>
 });
 
 app.options("/generate", corsMiddleware);
-app.post(
-  "/generate",
-  corsMiddleware,
-  requireAiAuth,
-  generateLimiter,
-  [
-    body("name").isString().isLength({ min: 1, max: 50 }).trim(),
-    body("age").isString().isLength({ min: 1, max: 10 }).trim(),
-    body("interests").isString().isLength({ min: 1, max: 200 }).trim(),
-    body("length").isIn(["short", "medium", "long"]),
-    body("mode").isIn(["random", "hero", "today", "sleepy", "long-surprise", "therapeutic", "custom", "medium-surprise"]),
-    body("dialect").optional().custom(isSupportedStoryLocale),
-    body("customIdea").optional().isString().isLength({ max: 200 }).trim(),
-    body("therapeuticSituation").optional().isString().isLength({ max: 200 }).trim(),
-    body("seriesContext").optional().isString().isLength({ max: 700 }).trim(),
-    body("childWish").optional().isString().isLength({ max: 120 }).trim(),
-    body("appearance").optional().isString().isLength({ max: 200 }).trim(),
-    body("dayBeats").optional().isString().isLength({ max: 400 }).trim(),
-    body("dayMood").optional().isString().isLength({ max: 40 }).trim(),
-    body("language").optional().isString().isLength({ max: 10 }).trim(),
-    body("globalInspiration").optional().isArray({ max: 10 }),
-    body("storyType").optional().isIn(["quick", "magic", "sleepy", "custom"]),
-  ],
-  async (req, res) => {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        logEvent("Validation error: " + JSON.stringify(errors.array()));
-        return res.status(400).json({ error: "Please check your input and try again." });
-      }
 
-      const { name, age, interests, length, mode, dialect, language, customIdea, therapeuticSituation, seriesContext, childWish, appearance, dayBeats, dayMood, globalInspiration } = req.body;
-      const cleanName = sanitizeInput(name);
-      const cleanAge = sanitizeInput(age);
-      const cleanInterests = sanitizeInput(interests);
-      const incomingMode = mode;
-      const normalizedMode = normalizeGenerateMode(incomingMode);
-      // `language` takes priority over legacy `dialect`.
-      // Resolve to a canonical code (e.g. "ja", "ar", "en-GB").
-      const cleanLanguage = language
-        ? resolveLanguageCode(String(language).trim().substring(0, 10))
-        : resolveLanguageCode(dialect);
-      const cleanDialect = cleanLanguage; // keep existing references working
-      const cleanTherapeuticSituation = therapeuticSituation ? sanitizeInput(therapeuticSituation) : null;
-      const cleanIdea = customIdea ? sanitizeInput(customIdea) : cleanTherapeuticSituation;
-      const cleanSeriesContext = seriesContext
-        ? String(seriesContext).replace(/[<>{}\[\]]/g, "").trim().substring(0, 700)
-        : null;
-      const cleanWish = childWish ? sanitizeInput(childWish) : null;
-      const cleanAppearance = appearance ? sanitizeInput(appearance) : null;
-      // dayBeats is up to 400 chars — use a longer sanitizer pass
-      const cleanBeats = dayBeats
-        ? String(dayBeats).replace(/[<>{}\[\]]/g, "").trim().substring(0, 400)
-        : null;
-      const cleanMood = dayMood ? sanitizeInput(dayMood) : null;
+// Valid raw modes for story identity — anything outside this set falls back to "adventure"
+const VALID_STORY_MODES = ["sleepy", "adventure", "therapeutic", "hero", "custom", "create", "today", "random", "medium-surprise", "long-surprise"];
 
-      const SAFE_MSG = "Let's keep stories kind and magical ✨";
-
-      // XSS / injection check
-      if (containsSuspiciousContent(cleanName) || containsSuspiciousContent(cleanInterests)) {
-        logEvent(`Blocked suspicious input from ${req.ip}: ${cleanName}`);
-        return res.status(400).json({ error: "Invalid input detected." });
-      }
-
-      // Child-safety content check on all free-text user fields
-      const unsafeFields = [cleanIdea, cleanTherapeuticSituation, cleanWish, cleanBeats, cleanAppearance, cleanMood]
-        .filter(Boolean)
-        .find(isUnsafeForChildren);
-
-      if (unsafeFields) {
-        logEvent(`Blocked unsafe content from ${req.ip}`);
-        return res.status(400).json({ error: SAFE_MSG, unsafe: true });
-      }
-
-      if (cleanSeriesContext && containsSuspiciousContent(cleanSeriesContext)) {
-        logEvent(`Blocked suspicious series context from ${req.ip}`);
-        return res.status(400).json({ error: "Invalid input detected." });
-      }
-
-      logEvent(`Generating ${incomingMode} story for "${cleanName}" (normalized=${normalizedMode}, age ${cleanAge}), interests: "${cleanInterests}"${cleanIdea ? `, idea: "${cleanIdea}"` : ""}${cleanWish ? `, wish: "${cleanWish}"` : ""}, length: ${length}, dialect: ${cleanDialect}`);
-
-      const cleanGlobalInspiration = Array.isArray(globalInspiration)
-        ? globalInspiration
-            .slice(0, 5)
-            .map((s) => sanitizeInput(String(s || "").trim().substring(0, 100)))
-            .filter(Boolean)
-        : [];
-
-      const storyInputs = {
-        name: cleanName, age: cleanAge, interests: cleanInterests, length,
-        language: cleanLanguage, dialect: cleanDialect, customIdea: cleanIdea,
-        seriesContext: cleanSeriesContext, childWish: cleanWish,
-        appearance: cleanAppearance, dayBeats: cleanBeats, dayMood: cleanMood,
-        globalInspiration: cleanGlobalInspiration.length ? cleanGlobalInspiration : undefined,
-      };
-
-      // Create job, respond immediately so the client connection can close.
-      // Phone can sleep — the pipeline keeps running on the server.
-      const jobId = createJob();
-      res.json({ jobId });
-
-      // Run pipeline in background — result stored in jobStore for client to poll.
-      runStoryPipeline(storyInputs, { mode: normalizedMode, cleanName, cleanDialect, cleanInterests, cleanIdea, cleanWish, cleanSeriesContext, cleanBeats, length })
-        .then(({ story, title }) => resolveJob(jobId, story, title))
-        .catch((err) => {
-          logEvent(`Pipeline error for job ${jobId}: ${err.message}`);
-          failJob(jobId, "story_failed");
-        });
-
-    } catch (error) {
-      logEvent(`Generate endpoint error: ${error.message}`);
-      res.status(500).json({ error: "Something went wrong. Please try again." });
-    }
+async function runStoryPipeline(storyInputs, { mode, rawMode, cleanName, cleanDialect, cleanInterests, cleanIdea, cleanWish, cleanSeriesContext, cleanBeats, length }) {
+  const safeRawMode = rawMode && VALID_STORY_MODES.includes(rawMode) ? rawMode : "adventure";
+  if (!rawMode || !VALID_STORY_MODES.includes(rawMode)) {
+    logEvent(`[WARN] Invalid story mode received: "${rawMode}" — falling back to "adventure"`);
   }
-);
-
-async function runStoryPipeline(storyInputs, { mode, cleanName, cleanDialect, cleanInterests, cleanIdea, cleanWish, cleanSeriesContext, cleanBeats, length }) {
   const modelConfig = getModelConfig({ mode, length });
   logEvent(`Model config for "${cleanName}": ${modelConfig.model} @ temp ${modelConfig.temperature}`);
 
@@ -1063,14 +1003,20 @@ async function runStoryPipeline(storyInputs, { mode, cleanName, cleanDialect, cl
   const validatorMaxTokens = getStoryTokenBudget(length, "validator", storyInputs.language);
   const titleMaxTokens = getStoryTokenBudget(length, "title", storyInputs.language);
 
-  const MAX_ATTEMPTS = USE_FULL_AI_PIPELINE ? 2 : 1;
+  const MAX_ATTEMPTS = 2; // always allow one auto-retry for quality
   let finalStory = null;
   let cleanTitle = null;
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     if (attempt > 1) logEvent(`Regeneration triggered for "${cleanName}" (attempt ${attempt})`);
 
-    const storyPrompt = buildStoryPrompt(storyInputs);
+    const storyPrompt = buildStoryPrompt({
+      ...storyInputs,
+      mode: safeRawMode,
+      customIdea: cleanIdea,
+      childWish: cleanWish,
+      dayBeats: cleanBeats,
+    });
     const rawStory = await callClaudeWithRetry({
       system: STORY_SYSTEM_PROMPT, prompt: storyPrompt,
       maxTokens: storyMaxTokens, temperature: modelConfig.temperature, model: modelConfig.model,
@@ -1084,10 +1030,15 @@ async function runStoryPipeline(storyInputs, { mode, cleanName, cleanDialect, cl
     });
 
     if (!USE_FULL_AI_PIPELINE) {
-      logEvent(`Stage 2 complete (edit) for "${cleanName}" [lean pipeline]`);
-      finalStory = finalizeStoryLocally(editedStory, cleanDialect, `Final story for ${cleanName}`);
-      cleanTitle = `${cleanName}'s Bedtime Story`;
-      break;
+      logEvent(`Stage 2 complete (edit) for "${cleanName}" [lean pipeline, attempt ${attempt}]`);
+      const candidate = finalizeStoryLocally(editedStory, cleanDialect, `Final story for ${cleanName}`);
+      if (validateStoryQuality(candidate)) {
+        finalStory = candidate;
+        cleanTitle = `${cleanName}'s Bedtime Story`;
+        break;
+      }
+      logEvent(`Quality check failed for "${cleanName}" [attempt ${attempt}] — retrying`);
+      continue;
     }
 
     const titlePrompt = buildTitlePrompt(rawStory, cleanName, cleanDialect);
@@ -1134,6 +1085,10 @@ async function runStoryPipeline(storyInputs, { mode, cleanName, cleanDialect, cl
   if (USE_FULL_AI_PIPELINE) {
     finalStory = assertStoryQuality(finalStory, { dialect: cleanDialect, label: `Final story for ${cleanName}` });
   }
+
+  // Enforce word limit and polish whitespace
+  finalStory = enforceLength(finalStory);
+  finalStory = polishStory(finalStory);
 
   if (!cleanTitle) cleanTitle = `${cleanName}'s Bedtime Story`;
 
