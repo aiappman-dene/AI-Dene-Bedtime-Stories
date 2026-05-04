@@ -6362,17 +6362,36 @@ function openGuestOneoffPrompt(sessionId) {
       if (genBtn) { genBtn.disabled = true; genBtn.textContent = "✨ Writing your story…"; }
       if (laterBtn) laterBtn.disabled = true;
       if (panel) panel.style.opacity = "0.8";
-      const res = await fetchWithTimeout(`${API_BASE}/api/guest/generate-oneoff`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          checkoutSessionId: sessionId,
-          name,
-          gender,
-          language: getCurrentLanguage(),
-          dialect: cachedDialect,
-        }),
-      }, 90000);
+      const payload = {
+        checkoutSessionId: sessionId,
+        name,
+        gender,
+        language: getCurrentLanguage(),
+        dialect: cachedDialect,
+      };
+
+      let res;
+      let lastErr;
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          res = await fetchWithTimeout(
+            `${API_BASE}/api/guest/generate-oneoff`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            },
+            150000
+          );
+          break;
+        } catch (err) {
+          lastErr = err;
+          const msg = String(err?.message || "");
+          const isTransient = msg.includes("timed out") || msg.includes("Failed to fetch") || msg.includes("NetworkError");
+          if (!isTransient || attempt === 2) throw err;
+        }
+      }
+      if (!res) throw lastErr || new Error("Could not generate your one-off story.");
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
