@@ -726,6 +726,20 @@ function getAgeWordBounds(age) {
   return { min: 1000, max: 1350 };
 }
 
+function countWords(text = "") {
+  return String(text)
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .length;
+}
+
+function getPremiumWordFloor(length = "medium") {
+  if (length === "long") return 1100;
+  if (length === "short") return 500;
+  return 700;
+}
+
 function enforceLength(text, age) {
   const words = text.split(" ");
   const { max } = getAgeWordBounds(age);
@@ -1735,7 +1749,7 @@ const VALID_STORY_MODES = ["sleepy", "adventure", "therapeutic", "hero", "custom
 
 async function runStoryPipeline(storyInputs, { mode, rawMode, cleanName, cleanDialect, cleanInterests, cleanIdea, cleanWish, cleanSeriesContext, cleanBeats, length, useFullPipeline, maxAttempts }) {
   const runFullPipeline = typeof useFullPipeline === "boolean" ? useFullPipeline : USE_FULL_AI_PIPELINE;
-  const maxTries = Number.isInteger(maxAttempts) && maxAttempts > 0 ? maxAttempts : 2;
+  const maxTries = Number.isInteger(maxAttempts) && maxAttempts > 0 ? maxAttempts : (runFullPipeline ? 3 : 2);
   const safeRawMode = rawMode && VALID_STORY_MODES.includes(rawMode) ? rawMode : "adventure";
   if (!rawMode || !VALID_STORY_MODES.includes(rawMode)) {
     logEvent(`[WARN] Invalid story mode received: "${rawMode}" — falling back to "adventure"`);
@@ -1811,15 +1825,67 @@ async function runStoryPipeline(storyInputs, { mode, rawMode, cleanName, cleanDi
       continue;
     }
 
+    // Premium gate: reject short/incomplete outputs even if validator text looked clean.
+    if (!validateStoryQuality(validatorOutput, storyInputs.age)) {
+      logEvent(`Validator output failed premium length/ending checks for "${cleanName}" [attempt ${attempt}]`);
+      continue;
+    }
+
+    const premiumWordFloor = getPremiumWordFloor(length);
+    const validatorWordCount = countWords(validatorOutput);
+    if (validatorWordCount < premiumWordFloor) {
+      logEvent(`Validator output too short for premium bar (got ${validatorWordCount}, need ${premiumWordFloor}) for "${cleanName}" [attempt ${attempt}]`);
+      continue;
+    }
+
     finalStory = validatorOutput;
     cleanTitle = title.replace(/["']/g, "").trim();
     break;
   }
 
   if (!finalStory) {
-    logEvent(`Pipeline exhausted for "${cleanName}" — serving safe fallback story`);
-    finalStory = getSafeFallbackStory(cleanName);
-    cleanTitle = `${cleanName}'s Bedtime Story`;
+    logEvent(`Pipeline exhausted for "${cleanName}" — trying emergency premium recovery pass`);
+    try {
+      const emergencyPrompt = `${buildStoryPrompt({
+        ...storyInputs,
+        mode: safeRawMode,
+        customIdea: cleanIdea,
+        childWish: cleanWish,
+        dayBeats: cleanBeats,
+      })}\n\nEMERGENCY QUALITY BAR (STRICT):\n- Complete, emotionally satisfying bedtime arc (beginning, middle, end).\n- No markdown dividers, no section headings, no abrupt cut-offs.\n- 900 to 1300 words.\n- Child is clearly safe and settled by the final sentence.`;
+
+      const emergencyRaw = await callClaudeWithRetry({
+        system: STORY_SYSTEM_PROMPT,
+        prompt: emergencyPrompt,
+        maxTokens: storyMaxTokens,
+        temperature: modelConfig.temperature,
+        model: modelConfig.model,
+      });
+
+      const emergencyEdited = await callClaudeWithRetry({
+        system: EDITOR_SYSTEM_PROMPT,
+        prompt: buildGrammarPrompt(emergencyRaw, cleanDialect),
+        maxTokens: editorMaxTokens,
+        temperature: 0.2,
+        model: modelConfig.model,
+      });
+
+      const emergencyCandidate = polishStory(finalizeStoryLocally(emergencyEdited, cleanDialect, `Emergency story for ${cleanName}`));
+      if (!validateStoryQuality(emergencyCandidate, storyInputs.age)) {
+        throw new Error("Emergency premium story did not meet quality bar");
+      }
+      if (countWords(emergencyCandidate) < getPremiumWordFloor(length)) {
+        throw new Error("Emergency premium story was below premium word floor");
+      }
+
+      finalStory = emergencyCandidate;
+      cleanTitle = `${cleanName}'s Bedtime Story`;
+      logEvent(`Emergency premium recovery succeeded for "${cleanName}"`);
+    } catch (e) {
+      logEvent(`Emergency premium recovery failed for "${cleanName}": ${e.message}`);
+      finalStory = getSafeFallbackStory(cleanName);
+      cleanTitle = `${cleanName}'s Bedtime Story`;
+    }
   }
 
   finalStory = runFullPipeline
