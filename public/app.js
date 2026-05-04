@@ -124,7 +124,6 @@ async function showWelcomeScreenIfNeeded(user) {
     };
   }
   return true;
-}
 
 function setupWelcomeStars() {
   const starsEl = document.querySelector('.welcome-stars');
@@ -10177,6 +10176,16 @@ onAuthStateChanged(auth, async (user) => {
     checkReturnUser();
     trackEvent("app_opened");
 
+    // After a 99p one-off payment Stripe redirects back with ?paid=oneoff.
+    // Take the user straight to the story wizard so they can generate immediately.
+    if (new URLSearchParams(window.location.search).get("paid") === "oneoff") {
+      history.replaceState(null, "", window.location.pathname);
+      setTimeout(() => {
+        showToast("✨ Payment confirmed! Let\u2019s create your story", "success");
+        navigateTo("create");
+      }, 600);
+    }
+
     // Light continuity — remind returning users of their last theme
     try {
       const lastTheme = localStorage.getItem("dt-lastTheme");
@@ -10245,7 +10254,7 @@ window.buyPack   = () => handleSubscribe("pack");
 const _subBtn = $("subscribeBtn");
 if (_subBtn) _subBtn.addEventListener("click", () => handleSubscribe("subscription"));
 const _oneOffBtn = $("oneOffBtn");
-if (_oneOffBtn) _oneOffBtn.addEventListener("click", () => handleSubscribe("one-off"));
+if (_oneOffBtn) _oneOffBtn.addEventListener("click", () => handleSubscribe("oneoff"));
 
 // Story card click handlers — attached via JS as well as onclick for reliability
 document.querySelector(".card-purple")?.addEventListener("click", () => handleGenerate("medium-surprise"));

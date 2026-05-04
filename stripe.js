@@ -46,7 +46,7 @@ export async function createCheckoutSession(req, res) {
       payment_method_types: ["card"],
       mode: type === "subscription" ? "subscription" : "payment",
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${base}/`,
+      success_url: type === "oneoff" ? `${base}/?paid=oneoff` : `${base}/`,
       cancel_url: `${base}/`,
       metadata: { uid, type },
     };
