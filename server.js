@@ -1697,6 +1697,7 @@ app.post(
         cleanSeriesContext: "",
         cleanBeats: "",
         length: "medium",
+        useFullPipeline: false,
       });
 
       return res.json({ story, title: title || `${cleanName}'s Bedtime Story` });
@@ -1730,7 +1731,8 @@ app.options("/generate", corsMiddleware);
 // Valid raw modes for story identity — anything outside this set falls back to "adventure"
 const VALID_STORY_MODES = ["sleepy", "adventure", "therapeutic", "hero", "custom", "create", "today", "random", "medium-surprise", "long-surprise"];
 
-async function runStoryPipeline(storyInputs, { mode, rawMode, cleanName, cleanDialect, cleanInterests, cleanIdea, cleanWish, cleanSeriesContext, cleanBeats, length }) {
+async function runStoryPipeline(storyInputs, { mode, rawMode, cleanName, cleanDialect, cleanInterests, cleanIdea, cleanWish, cleanSeriesContext, cleanBeats, length, useFullPipeline }) {
+  const runFullPipeline = typeof useFullPipeline === "boolean" ? useFullPipeline : USE_FULL_AI_PIPELINE;
   const safeRawMode = rawMode && VALID_STORY_MODES.includes(rawMode) ? rawMode : "adventure";
   if (!rawMode || !VALID_STORY_MODES.includes(rawMode)) {
     logEvent(`[WARN] Invalid story mode received: "${rawMode}" — falling back to "adventure"`);
@@ -1769,7 +1771,7 @@ async function runStoryPipeline(storyInputs, { mode, rawMode, cleanName, cleanDi
       maxTokens: editorMaxTokens, temperature: 0.2, model: modelConfig.model,
     });
 
-    if (!USE_FULL_AI_PIPELINE) {
+    if (!runFullPipeline) {
       logEvent(`Stage 2 complete (edit) for "${cleanName}" [lean pipeline, attempt ${attempt}]`);
       const candidate = finalizeStoryLocally(editedStory, cleanDialect, `Final story for ${cleanName}`);
       if (validateStoryQuality(candidate, storyInputs.age)) {
@@ -1818,11 +1820,11 @@ async function runStoryPipeline(storyInputs, { mode, rawMode, cleanName, cleanDi
     cleanTitle = `${cleanName}'s Bedtime Story`;
   }
 
-  finalStory = USE_FULL_AI_PIPELINE
+  finalStory = runFullPipeline
     ? await runDeliveryQaPass(finalStory, cleanDialect)
     : finalizeStoryLocally(finalStory, cleanDialect, `Final story for ${cleanName}`);
 
-  if (USE_FULL_AI_PIPELINE) {
+  if (runFullPipeline) {
     finalStory = assertStoryQuality(finalStory, { dialect: cleanDialect, label: `Final story for ${cleanName}` });
   }
 

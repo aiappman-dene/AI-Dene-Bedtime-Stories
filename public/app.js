@@ -6229,6 +6229,11 @@ function canGenerateStory() {
   return false;
 }
 
+function isReadingModeOpen() {
+  const readingMode = $("readingMode");
+  return !!readingMode && !readingMode.classList.contains("hidden");
+}
+
 /** Increment the story counter after a successful generation. */
 async function recordStoryUsed() {
   return;
@@ -6284,6 +6289,7 @@ function getGuestCheckoutSessionFromUrl() {
 }
 
 function showSoftPremiumUpsell(childName) {
+  if (isReadingModeOpen()) return;
   const existing = document.getElementById("softUpsellCard");
   if (existing) existing.remove();
 
@@ -8909,7 +8915,7 @@ function displayStory(title, text, context = {}) {
   // Soft upsell — shown 30s after story displays, only for non-premium users
   if (!cachedIsPremium) {
     setTimeout(() => {
-      if (currentPage === "story") showUpsell(currentStoryChildName);
+      if (currentPage === "story" && !isReadingModeOpen()) showUpsell(currentStoryChildName);
     }, 30000);
   }
 }
