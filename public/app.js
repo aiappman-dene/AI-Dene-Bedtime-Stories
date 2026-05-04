@@ -124,6 +124,7 @@ async function showWelcomeScreenIfNeeded(user) {
     };
   }
   return true;
+}
 
 function setupWelcomeStars() {
   const starsEl = document.querySelector('.welcome-stars');
@@ -6234,7 +6235,9 @@ async function recordStoryUsed() {
 
 async function handleSubscribe(type = "subscription") {
   const isSub = type === "subscription";
-  const btn = isSub ? $("subscribeBtn") : $("oneOffBtn");
+  const btn = isSub
+    ? $("subscribeBtn")
+    : ($("oneOffBtn") || $("authOneOffBtn"));
   const originalText = btn?.textContent || "";
   if (btn) { btn.disabled = true; btn.textContent = "Loading…"; }
 
@@ -6249,6 +6252,11 @@ async function handleSubscribe(type = "subscription") {
       body: JSON.stringify({ type }),
     });
     const data = await res.json();
+
+    if (res.status === 401) {
+      showToast("Please log in or sign up first to buy your 99p story", "info");
+      return;
+    }
 
     if (data.url) {
       trackEvent("checkout_started", { type });
@@ -10248,6 +10256,13 @@ window.handleGenerate = handleGenerate;
 window.handleSubscribe = handleSubscribe;
 window.showUpsell = showUpsell;
 window.buyOneStory = () => handleSubscribe("oneoff");
+window.buyOneStoryFromAuth = () => {
+  if (!currentUser) {
+    showToast("Log in or sign up to unlock your 99p story", "info");
+    return;
+  }
+  handleSubscribe("oneoff");
+};
 window.buyPremium = () => handleSubscribe("subscription");
 window.buyPack   = () => handleSubscribe("pack");
 
