@@ -6289,18 +6289,18 @@ function showSoftPremiumUpsell(childName) {
 
   const card = document.createElement("div");
   card.id = "softUpsellCard";
-  card.style.cssText =
-    "position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:9999;" +
-    "background:#0f1a2e;color:#fff;border:1px solid rgba(255,255,255,0.18);border-radius:14px;" +
-    "padding:12px 14px;max-width:560px;width:calc(100% - 24px);box-shadow:0 10px 30px rgba(0,0,0,0.35);";
+  card.className = "guest-soft-upsell";
   card.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-      <div style="font-size:13px;line-height:1.35;opacity:.95;">
-        Loved that${childName ? `, ${childName}` : ""}? Continue the magic with unlimited stories.
+    <div class="guest-soft-upsell-glow" aria-hidden="true"></div>
+    <div class="guest-soft-upsell-stars" aria-hidden="true">★ ✦ ★</div>
+    <div class="guest-soft-upsell-content">
+      <div class="guest-soft-upsell-text">
+        <p class="guest-soft-upsell-title">Loved that${childName ? `, ${childName}` : ""}?</p>
+        <p class="guest-soft-upsell-subtitle">Keep the bedtime magic flowing with unlimited personalised stories.</p>
       </div>
-      <div style="display:flex;gap:8px;">
-        <button id="softUpsellClose" class="btn secondary" style="padding:8px 12px;">Maybe later</button>
-        <button id="softUpsellBuy" class="btn primary" style="padding:8px 12px;">&pound;4.99/month</button>
+      <div class="guest-soft-upsell-actions">
+        <button id="softUpsellClose" class="btn secondary">Maybe later</button>
+        <button id="softUpsellBuy" class="btn primary">&pound;4.99/month</button>
       </div>
     </div>
   `;
@@ -6319,23 +6319,26 @@ function openGuestOneoffPrompt(sessionId) {
 
   const modal = document.createElement("div");
   modal.id = "guestOneoffModal";
-  modal.style.cssText =
-    "position:fixed;inset:0;z-index:10000;background:rgba(3,7,18,0.65);display:flex;align-items:center;justify-content:center;padding:16px;";
+  modal.className = "guest-oneoff-modal";
   modal.innerHTML = `
-    <div style="width:min(460px,100%);background:#fff;border-radius:16px;padding:18px;box-shadow:0 16px 40px rgba(0,0,0,0.35);">
-      <h3 style="margin:0 0 8px 0;color:#0f172a;">Payment confirmed</h3>
-      <p style="margin:0 0 14px 0;color:#334155;font-size:14px;">Tell us who tonight's story is for.</p>
-      <label style="display:block;font-size:12px;color:#475569;margin-bottom:6px;">Child's first name</label>
-      <input id="guestChildName" type="text" maxlength="50" placeholder="e.g. Sophia" style="width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;margin-bottom:12px;" />
-      <label style="display:block;font-size:12px;color:#475569;margin-bottom:6px;">Boy or girl?</label>
-      <select id="guestChildGender" style="width:100%;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;margin-bottom:14px;">
+    <div class="guest-oneoff-panel">
+      <div class="guest-oneoff-panel-stars" aria-hidden="true">★ ✦ ★</div>
+      <h3 class="guest-oneoff-title">Payment confirmed</h3>
+      <p class="guest-oneoff-subtitle">Tell us who tonight's magical story is for.</p>
+
+      <label class="guest-oneoff-label" for="guestChildName">Child's first name</label>
+      <input id="guestChildName" class="guest-oneoff-input" type="text" maxlength="50" placeholder="e.g. Sophia" />
+
+      <label class="guest-oneoff-label" for="guestChildGender">Boy or girl?</label>
+      <select id="guestChildGender" class="guest-oneoff-input">
         <option value="girl">Girl</option>
         <option value="boy">Boy</option>
         <option value="neutral">Other</option>
       </select>
-      <div style="display:flex;gap:8px;justify-content:flex-end;">
-        <button id="guestOneoffLater" class="btn secondary" style="padding:8px 12px;">Later</button>
-        <button id="guestOneoffGenerate" class="btn primary" style="padding:8px 12px;">Generate story</button>
+
+      <div class="guest-oneoff-actions">
+        <button id="guestOneoffLater" class="btn secondary">Later</button>
+        <button id="guestOneoffGenerate" class="btn primary">Create magical story</button>
       </div>
     </div>
   `;

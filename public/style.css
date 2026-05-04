@@ -3604,3 +3604,187 @@ h2 {
   color: var(--gold-primary) !important;
   text-shadow: 0 0 18px rgba(246, 196, 83, 0.4) !important;
 }
+
+/* =============================================================================
+   Guest One-Off Flow — Magical Themed UI
+   ============================================================================= */
+
+.guest-oneoff-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background:
+    radial-gradient(circle at 20% 15%, rgba(246, 196, 83, 0.2), transparent 45%),
+    radial-gradient(circle at 78% 85%, rgba(109, 74, 255, 0.28), transparent 45%),
+    rgba(8, 10, 24, 0.72);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+.guest-oneoff-panel {
+  width: min(460px, 100%);
+  border-radius: 24px;
+  padding: 20px;
+  background: linear-gradient(150deg, rgba(20, 16, 45, 0.95), rgba(36, 22, 70, 0.95));
+  border: 1px solid rgba(246, 196, 83, 0.3);
+  box-shadow:
+    0 18px 48px rgba(0, 0, 0, 0.45),
+    inset 0 0 36px rgba(109, 74, 255, 0.18);
+}
+
+.guest-oneoff-panel-stars {
+  color: var(--gold-primary);
+  font-size: 14px;
+  letter-spacing: 6px;
+  opacity: 0.85;
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.guest-oneoff-title {
+  margin: 0;
+  text-align: center;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--gold-primary) !important;
+  text-shadow: 0 0 14px rgba(246, 196, 83, 0.28);
+}
+
+.guest-oneoff-subtitle {
+  margin: 10px 0 16px;
+  color: rgba(255, 255, 255, 0.86) !important;
+  text-align: center;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.guest-oneoff-label {
+  display: block;
+  margin-bottom: 6px;
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.guest-oneoff-input {
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 11px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff !important;
+}
+
+.guest-oneoff-input:focus {
+  outline: none;
+  border-color: rgba(246, 196, 83, 0.75);
+  box-shadow: 0 0 0 2px rgba(246, 196, 83, 0.22);
+}
+
+.guest-oneoff-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.guest-soft-upsell {
+  position: fixed;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  width: min(640px, calc(100% - 22px));
+  z-index: 9999;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid rgba(246, 196, 83, 0.32);
+  background: linear-gradient(130deg, rgba(17, 12, 35, 0.96), rgba(30, 20, 58, 0.96));
+  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.35);
+}
+
+.guest-soft-upsell-glow {
+  position: absolute;
+  inset: -30% -20% auto;
+  height: 120px;
+  background: radial-gradient(circle, rgba(109, 74, 255, 0.35) 0%, transparent 65%);
+  pointer-events: none;
+}
+
+.guest-soft-upsell-stars {
+  position: absolute;
+  top: 7px;
+  right: 12px;
+  font-size: 11px;
+  letter-spacing: 4px;
+  color: var(--gold-primary);
+  opacity: 0.9;
+  animation: guestStarTwinkle 2.2s ease-in-out infinite alternate;
+}
+
+.guest-soft-upsell-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 14px 14px 12px;
+}
+
+.guest-soft-upsell-text {
+  min-width: 220px;
+  flex: 1 1 280px;
+}
+
+.guest-soft-upsell-title {
+  margin: 0;
+  color: var(--gold-primary) !important;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.guest-soft-upsell-subtitle {
+  margin: 3px 0 0;
+  color: rgba(255, 255, 255, 0.84) !important;
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
+.guest-soft-upsell-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.guest-soft-upsell-actions .btn {
+  padding: 8px 12px;
+  border-radius: 12px;
+}
+
+@keyframes guestStarTwinkle {
+  0% { opacity: 0.45; transform: translateY(0); }
+  100% { opacity: 1; transform: translateY(-1px); }
+}
+
+@media (max-width: 560px) {
+  .guest-oneoff-panel {
+    padding: 18px 14px;
+    border-radius: 18px;
+  }
+
+  .guest-oneoff-actions,
+  .guest-soft-upsell-actions {
+    width: 100%;
+  }
+
+  .guest-oneoff-actions .btn,
+  .guest-soft-upsell-actions .btn {
+    flex: 1 1 50%;
+  }
+}
