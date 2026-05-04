@@ -241,6 +241,14 @@ export async function handleWebhook(req, res) {
 }
 
 export async function validateAndConsumeGuestOneoff(checkoutSessionId) {
+  // Dev/test bypass — only active outside production
+  if (
+    process.env.NODE_ENV !== "production" &&
+    checkoutSessionId === "dev_test_oneoff"
+  ) {
+    return { ok: true };
+  }
+
   const stripe = getStripe();
   if (!stripe) {
     return { ok: false, status: 503, error: "Payments are currently unavailable." };
