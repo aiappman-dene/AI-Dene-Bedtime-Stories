@@ -1698,6 +1698,7 @@ app.post(
         cleanBeats: "",
         length: "medium",
         useFullPipeline: false,
+        maxAttempts: 1,
       });
 
       return res.json({ story, title: title || `${cleanName}'s Bedtime Story` });
@@ -1731,8 +1732,9 @@ app.options("/generate", corsMiddleware);
 // Valid raw modes for story identity — anything outside this set falls back to "adventure"
 const VALID_STORY_MODES = ["sleepy", "adventure", "therapeutic", "hero", "custom", "create", "today", "random", "medium-surprise", "long-surprise"];
 
-async function runStoryPipeline(storyInputs, { mode, rawMode, cleanName, cleanDialect, cleanInterests, cleanIdea, cleanWish, cleanSeriesContext, cleanBeats, length, useFullPipeline }) {
+async function runStoryPipeline(storyInputs, { mode, rawMode, cleanName, cleanDialect, cleanInterests, cleanIdea, cleanWish, cleanSeriesContext, cleanBeats, length, useFullPipeline, maxAttempts }) {
   const runFullPipeline = typeof useFullPipeline === "boolean" ? useFullPipeline : USE_FULL_AI_PIPELINE;
+  const maxTries = Number.isInteger(maxAttempts) && maxAttempts > 0 ? maxAttempts : 2;
   const safeRawMode = rawMode && VALID_STORY_MODES.includes(rawMode) ? rawMode : "adventure";
   if (!rawMode || !VALID_STORY_MODES.includes(rawMode)) {
     logEvent(`[WARN] Invalid story mode received: "${rawMode}" — falling back to "adventure"`);
@@ -1745,11 +1747,10 @@ async function runStoryPipeline(storyInputs, { mode, rawMode, cleanName, cleanDi
   const validatorMaxTokens = getStoryTokenBudget(length, "validator", storyInputs.language);
   const titleMaxTokens = getStoryTokenBudget(length, "title", storyInputs.language);
 
-  const MAX_ATTEMPTS = 2; // always allow one auto-retry for quality
   let finalStory = null;
   let cleanTitle = null;
 
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+  for (let attempt = 1; attempt <= maxTries; attempt++) {
     if (attempt > 1) logEvent(`Regeneration triggered for "${cleanName}" (attempt ${attempt})`);
 
     const storyPrompt = buildStoryPrompt({
@@ -1774,7 +1775,7 @@ async function runStoryPipeline(storyInputs, { mode, rawMode, cleanName, cleanDi
     if (!runFullPipeline) {
       logEvent(`Stage 2 complete (edit) for "${cleanName}" [lean pipeline, attempt ${attempt}]`);
       const candidate = finalizeStoryLocally(editedStory, cleanDialect, `Final story for ${cleanName}`);
-      if (validateStoryQuality(candidate, storyInputs.age)) {
+      if (validateStoryQuality(candidate, storyInputs.age) || maxTries === 1) {
         finalStory = candidate;
         cleanTitle = `${cleanName}'s Bedtime Story`;
         break;

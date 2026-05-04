@@ -6346,6 +6346,7 @@ function openGuestOneoffPrompt(sessionId) {
         <button id="guestOneoffLater" class="btn secondary">Later</button>
         <button id="guestOneoffGenerate" class="btn primary">Create magical story</button>
       </div>
+      <p id="guestOneoffStatus" class="guest-oneoff-status" aria-live="polite"></p>
     </div>
   `;
 
@@ -6358,6 +6359,14 @@ function openGuestOneoffPrompt(sessionId) {
     const genBtn = modal.querySelector("#guestOneoffGenerate");
     const laterBtn = modal.querySelector("#guestOneoffLater");
     const panel = modal.querySelector(".guest-oneoff-panel");
+    const statusEl = modal.querySelector("#guestOneoffStatus");
+    const phases = [
+      "✨ Gathering stardust...",
+      "🌙 Weaving your magical story...",
+      "📖 Polishing every page for bedtime...",
+    ];
+    let phaseIndex = 0;
+    let phaseTimer = null;
     if (!name) {
       showToast("Please add your child's first name", "info");
       return;
@@ -6368,6 +6377,15 @@ function openGuestOneoffPrompt(sessionId) {
       if (genBtn) { genBtn.disabled = true; genBtn.textContent = "✨ Writing your story…"; }
       if (laterBtn) laterBtn.disabled = true;
       if (panel) panel.style.opacity = "0.8";
+      if (statusEl) {
+        statusEl.textContent = phases[0];
+        statusEl.classList.add("active");
+      }
+      phaseTimer = setInterval(() => {
+        phaseIndex = (phaseIndex + 1) % phases.length;
+        if (statusEl) statusEl.textContent = phases[phaseIndex];
+      }, 2600);
+
       const payload = {
         checkoutSessionId: sessionId,
         name,
@@ -6418,11 +6436,16 @@ function openGuestOneoffPrompt(sessionId) {
     } catch (error) {
       showToast(error.message || "Could not generate story", "error");
     } finally {
+      if (phaseTimer) clearInterval(phaseTimer);
       // If generation fails and modal is still open, restore controls.
       if (modal.isConnected) {
         if (genBtn) { genBtn.disabled = false; genBtn.textContent = "Create magical story"; }
         if (laterBtn) laterBtn.disabled = false;
         if (panel) panel.style.opacity = "1";
+        if (statusEl) {
+          statusEl.classList.remove("active");
+          statusEl.textContent = "";
+        }
       }
       hideLoading();
     }
