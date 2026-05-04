@@ -157,6 +157,10 @@ async function fetchTeddyCount() {
     const data = await res.json();
     teddyCount = data.teddies_remaining;
     teddyLastReset = data.teddies_last_reset;
+    // Trust the server on premium status (accounts for dev bypass + subscriptions)
+    if (data.is_premium === true) {
+      cachedIsPremium = true;
+    }
     updateTeddyCounterUI();
   } catch (e) {
     teddyCount = null;
@@ -179,11 +183,11 @@ function updateTeddyCounterUI() {
   // Low/zero teddy messages
   if (teddyCount !== null && teddyCount <= 3) {
     teddyBtn.title = teddyCount === 0
-      ? "All your teddies have been used tonight! Come back tomorrow or add more for 99p 🧸"
-      : "Running low on teddies! 🧸";
+      ? "All stories used — subscribe to continue 🌙"
+      : "Running low on stories! 🧸";
     teddyBtn.style.filter = teddyCount === 0 ? 'grayscale(0.7)' : '';
   } else {
-    teddyBtn.title = "Add Teddies 🧸 99p";
+    teddyBtn.title = "Stories remaining";
     teddyBtn.style.filter = '';
   }
 }
@@ -483,7 +487,16 @@ window.addEventListener("unhandledrejection", () => {
 // API
 // =============================================================================
 
-const API_BASE = "https://dreamtalez.onrender.com";
+// Same-origin in production (the page and API share the host). In Capacitor
+// the app loads from a capacitor:// scheme, so fall back to the dev server.
+// NEVER hardcode http://localhost in shipped builds — the user's phone
+// would call its own localhost and every story request would fail.
+const API_BASE = (() => {
+  if (typeof window === "undefined") return "";
+  const proto = window.location?.protocol || "";
+  if (proto === "http:" || proto === "https:") return ""; // same-origin
+  return "http://localhost:3000"; // capacitor / file:// dev fallback
+})();
 
 // =============================================================================
 // App State
@@ -707,7 +720,7 @@ const UI_STRINGS = {
     log_in: "Log In",
     forgot_password: "Forgot password?",
     sample_story_btn: "★ Read a Sample Story",
-    trust_line: "7-day free trial · Then £3.99/month · 10 stories per week · No ads",
+    trust_line: "Try 1 story for 99p · Then £4.99/month · No ads",
     auth_legal: "By signing up you agree to our",
     auth_terms: "Terms",
     auth_and: "and",
@@ -888,7 +901,7 @@ const UI_STRINGS = {
     log_in: "Se connecter",
     forgot_password: "Mot de passe oublié ?",
     sample_story_btn: "★ Lire une histoire d'exemple",
-    trust_line: "Essai gratuit 7 jours · Puis £3.99/mois · 10 histoires par semaine · Sans publicité",
+    trust_line: "Essayez 1 histoire pour 99p · Puis £4.99/mois · Sans publicité",
     auth_legal: "En vous inscrivant, vous acceptez nos",
     auth_terms: "Conditions",
     auth_and: "et notre",
@@ -1056,7 +1069,7 @@ const UI_STRINGS = {
     log_in: "Iniciar sesión",
     forgot_password: "¿Olvidaste tu contraseña?",
     sample_story_btn: "★ Leer un cuento de muestra",
-    trust_line: "7 días de prueba gratis · Luego £3.99/mes · 10 cuentos por semana · Sin anuncios",
+    trust_line: "Prueba 1 cuento por 99p · Luego £4.99/mes · Sin anuncios",
     auth_legal: "Al registrarte, aceptas nuestros",
     auth_terms: "Términos",
     auth_and: "y nuestra",
@@ -1224,7 +1237,7 @@ const UI_STRINGS = {
     log_in: "Entrar",
     forgot_password: "Esqueceu a palavra-passe?",
     sample_story_btn: "★ Ler uma história de exemplo",
-    trust_line: "7 dias grátis · Depois £3.99/mês · 10 histórias por semana · Sem anúncios",
+    trust_line: "Experimente 1 história por 99p · Depois £4.99/mês · Sem anúncios",
     auth_legal: "Ao registar-se, aceita os nossos",
     auth_terms: "Termos",
     auth_and: "e a nossa",
@@ -1392,7 +1405,7 @@ const UI_STRINGS = {
     log_in: "Anmelden",
     forgot_password: "Passwort vergessen?",
     sample_story_btn: "★ Eine Beispielgeschichte lesen",
-    trust_line: "7 Tage kostenlos · Dann £3.99/Monat · 10 Geschichten pro Woche · Keine Werbung",
+    trust_line: "1 Geschichte für 99p testen · Dann £4.99/Monat · Keine Werbung",
     auth_legal: "Mit der Anmeldung stimmst du unseren",
     auth_terms: "Nutzungsbedingungen",
     auth_and: "und unserer",
@@ -1560,7 +1573,7 @@ const UI_STRINGS = {
     log_in: "Accedi",
     forgot_password: "Password dimenticata?",
     sample_story_btn: "★ Leggi una storia di esempio",
-    trust_line: "7 giorni gratis · Poi £3.99/mese · 10 storie a settimana · Nessuna pubblicità",
+    trust_line: "Prova 1 storia per 99p · Poi £4.99/mese · Nessuna pubblicità",
     auth_legal: "Registrandoti, accetti i nostri",
     auth_terms: "Termini",
     auth_and: "e la nostra",
@@ -1728,7 +1741,7 @@ const UI_STRINGS = {
     log_in: "ログイン",
     forgot_password: "パスワードをお忘れですか？",
     sample_story_btn: "★ サンプルのお話を読む",
-    trust_line: "7日間無料 · その後£3.99/月 · 週10話 · 広告なし",
+    trust_line: "1話を99pでお試し · その後£4.99/月 · 広告なし",
     auth_legal: "登録することで以下に同意します：",
     auth_terms: "利用規約",
     auth_and: "および",
@@ -1896,7 +1909,7 @@ const UI_STRINGS = {
     log_in: "登录",
     forgot_password: "忘记密码？",
     sample_story_btn: "★ 阅读示例故事",
-    trust_line: "7天免费试用 · 之后£3.99/月 · 每周10个故事 · 无广告",
+    trust_line: "99p试听1个故事 · 之后£4.99/月 · 无广告",
     auth_legal: "注册即表示您同意我们的",
     auth_terms: "服务条款",
     auth_and: "和",
@@ -2064,7 +2077,7 @@ const UI_STRINGS = {
     log_in: "تسجيل الدخول",
     forgot_password: "نسيت كلمة المرور؟",
     sample_story_btn: "★ قراءة قصة نموذجية",
-    trust_line: "تجربة مجانية 7 أيام · ثم £3.99/شهر · 10 قصص أسبوعياً · بلا إعلانات",
+    trust_line: "جرّب قصة واحدة بـ 99 بنساً · ثم £4.99/شهر · بلا إعلانات",
     auth_legal: "بالتسجيل، أنت توافق على",
     auth_terms: "شروط الخدمة",
     auth_and: "و",
@@ -2232,7 +2245,7 @@ const UI_STRINGS = {
     log_in: "लॉग इन करें",
     forgot_password: "पासवर्ड भूल गए?",
     sample_story_btn: "★ एक नमूना कहानी पढ़ें",
-    trust_line: "7 दिन मुफ़्त · फिर £3.99/माह · प्रति सप्ताह 10 कहानियाँ · कोई विज्ञापन नहीं",
+    trust_line: "1 कहानी 99p में आज़माएँ · फिर £4.99/माह · कोई विज्ञापन नहीं",
     auth_legal: "साइन अप करके आप हमारी",
     auth_terms: "शर्तें",
     auth_and: "और",
@@ -2400,7 +2413,7 @@ const UI_STRINGS = {
     log_in: "لاگ ان کریں",
     forgot_password: "پاس ورڈ بھول گئے؟",
     sample_story_btn: "★ ایک نمونہ کہانی پڑھیں",
-    trust_line: "7 دن مفت · پھر £3.99/ماہ · ہفتے میں 10 کہانیاں · کوئی اشتہار نہیں",
+    trust_line: "1 کہانی 99p میں آزمائیں · پھر £4.99/ماہ · کوئی اشتہار نہیں",
     auth_legal: "سائن اپ کر کے آپ ہماری",
     auth_terms: "شرائط",
     auth_and: "اور",
@@ -5932,7 +5945,6 @@ function selectChild(index) {
   renderLibrary();
 }
 
-/**
 function buildPersonalWorld(child) {
   const w = {};
   if (child.pet) w.pet = child.pet;
@@ -5941,6 +5953,7 @@ function buildPersonalWorld(child) {
   return Object.keys(w).length ? w : undefined;
 }
 
+/**
  * Append gender and sibling context to the interests string so the AI
  * system prompt can personalise + age-match naturally. Kept within the
  * server's 200-char limit.
@@ -6099,102 +6112,6 @@ async function advanceHeroSeries(childName, title, storyText) {
 }
 
 // =============================================================================
-// Sample Story (no-signup demo showcase)
-// =============================================================================
-
-const SAMPLE_STORY = {
-  title: "Luna and the Moon Keeper",
-  text: `Once upon a time, in a quiet valley where the stars came out one by one, there was a little girl named Luna.
-
-Luna had always loved the moon. She waved to it every night through her bedroom window, and the moon seemed to wave back with a soft silver smile.
-
-One evening, as Luna pressed her forehead to the cool glass, something magical happened. A small silver bird landed on her windowsill. Its feathers shimmered like moonlight, and in its tiny beak was a folded note.
-
-Luna unfolded it carefully. "The moon needs a helper tonight," it read. "Will you come?"
-
-Luna's heart glowed. She slipped on her slippers, opened her window, and the silver bird gently took her hand. Together, they drifted up — past the rooftops, past the sleepy clouds, all the way to a tiny floating harbour where the moon waited, round and warm.
-
-"Thank you for coming, Luna," said the moon in a voice like a soft lullaby. "I've lost a little piece of my light, and I need someone brave and kind to help me find it."
-
-Luna looked down. Far below, a single glowing pebble was resting in a field of sleeping daisies. "I see it!" she whispered.
-
-She climbed gently into a boat made of starlight, and the silver bird steered them down, down, down, until Luna's toes touched the cool grass. The daisies yawned and nodded as she tiptoed past.
-
-Luna picked up the glowing pebble. It was warm and soft, like a tiny heartbeat. She held it close to her chest and carried it carefully back to the boat.
-
-When they returned, the moon smiled its biggest smile. "Thank you, Luna. You've given me back my gentle glow."
-
-The moon placed the pebble softly into its own light, and the whole sky grew brighter and calmer. Then the moon leaned down and whispered, "Close your eyes, brave one. It's time to sleep now."
-
-Luna closed her eyes. She felt the starlight boat drift gently home, past the clouds, past the rooftops, back through her window, back under her warm, soft blankets.
-
-When she opened her eyes, she was tucked in tightly. The silver bird was perched on her pillow, nodding a sleepy goodnight.
-
-Luna smiled, and the moon outside smiled back.
-
-Then, carrying the memory of the little glowing pebble like a warm secret, Luna drifted into a deep, gentle sleep.`,
-};
-
-let isShowingSample = false;
-
-function showSampleStory() {
-  const readingMode = $("readingMode");
-  const readingTitle = $("readingTitle");
-  const readingText = $("readingText");
-  const saveBtn = $("saveProgressBtn");
-  if (!readingMode || !readingTitle || !readingText) return;
-
-  isShowingSample = true;
-  readingTitle.textContent = SAMPLE_STORY.title;
-  renderStoryWithReveal(SAMPLE_STORY.text, getReadingMode());
-  if (saveBtn) saveBtn.classList.add("hidden");
-
-  // Apply saved reading preferences
-  if (localStorage.getItem("readingDark") === "1") {
-    readingMode.classList.add("dark");
-  }
-  const dyslexiaOn = localStorage.getItem("readingDyslexia") === "1";
-  readingMode.classList.toggle("dyslexia", dyslexiaOn);
-
-  readingMode.classList.remove("hidden");
-  document.body.style.overflow = "hidden";
-  readingMode.scrollTop = 0;
-
-  renderSampleCTA();
-}
-
-function renderSampleCTA() {
-  let cta = document.getElementById("sampleCTA");
-  if (cta) return;
-  cta = document.createElement("div");
-  cta.id = "sampleCTA";
-  cta.className = "sample-cta-overlay";
-  cta.innerHTML = `
-    <p>Create stories like this for your own child</p>
-    <button class="btn primary btn-lg" id="sampleCTABtn">Sign Up Free &mdash; 7-day trial</button>
-  `;
-  document.body.appendChild(cta);
-  const btn = document.getElementById("sampleCTABtn");
-  if (btn) btn.addEventListener("click", exitSampleStory);
-}
-
-function exitSampleStory() {
-  const readingMode = $("readingMode");
-  if (!readingMode) return;
-  readingMode.classList.add("hidden");
-  document.body.style.overflow = "";
-  isShowingSample = false;
-  const cta = document.getElementById("sampleCTA");
-  if (cta) cta.remove();
-  // Scroll the email field into view so signup is the obvious next step
-  const emailInput = $("email");
-  if (emailInput) {
-    emailInput.focus({ preventScroll: true });
-    emailInput.scrollIntoView({ behavior: "smooth", block: "center" });
-  }
-}
-
-// =============================================================================
 // Free Trial (7 days, 7 stories, no Long Hero)
 // =============================================================================
 
@@ -6295,9 +6212,20 @@ function lockLongHeroOption(locked) {
   }
 }
 
-/** Call before any generate attempt. Returns true if allowed, false if gated. */
+/**
+ * Returns true iff the user has the right to generate a story right now —
+ * either an active subscription or at least one paid credit (one-off or
+ * extras). The server is the source of truth via consumeStory; this client
+ * check is purely to avoid serving a free local procedural story when the
+ * API path is unavailable (offline, server error, rate limit).
+ */
 function canGenerateStory() {
-  return true;
+  if (cachedIsPremium) return true;
+  if (typeof teddyCount === "number" && teddyCount > 0) return true;
+  // teddyCount === null means we haven't fetched credit state yet. Be
+  // conservative: refuse the procedural fallback rather than risk handing
+  // out a free story to an unknown user.
+  return false;
 }
 
 /** Increment the story counter after a successful generation. */
@@ -6307,7 +6235,7 @@ async function recordStoryUsed() {
 
 async function handleSubscribe(type = "subscription") {
   const isSub = type === "subscription";
-  const btn = $(isSub ? "subscribeBtn" : "oneOffBtn");
+  const btn = isSub ? $("subscribeBtn") : $("oneOffBtn");
   const originalText = btn?.textContent || "";
   if (btn) { btn.disabled = true; btn.textContent = "Loading…"; }
 
@@ -6350,19 +6278,20 @@ function showPaymentComingSoon() {
 
 function showUpsell(childName) {
   const name = childName || "your little one";
-  // Remove any existing upsell before showing a new one
   document.querySelector(".upsell-card")?.remove();
   const el = document.createElement("div");
   el.className = "card upsell-card";
   el.style.cssText = "position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9998;padding:32px;gap:12px;text-align:center;";
   el.innerHTML = `
-    <h2>✨ That was ${name}'s adventure…</h2>
-    <p>There are so many more magical stories waiting.</p>
-    <p>Create beautiful bedtime stories every night.</p>
-    <button class="btn primary btn-lg" id="upsellSubBtn">Unlock Unlimited Stories — £4.99/month</button>
-    <button class="btn secondary" id="upsellDismissBtn">Maybe later</button>
+    <h2>✨ Tonight's story for ${name}</h2>
+    <p>Create a beautiful personalised bedtime story.</p>
+    <p>7–10 minutes · Calming · Magical · Starring your child.</p>
+    <button class="btn primary btn-lg" id="upsellOneOffBtn">Tonight's story — 99p</button>
+    <button class="btn secondary btn-lg" id="upsellSubBtn">Unlimited stories — £4.99/month</button>
+    <button class="btn ghost" id="upsellDismissBtn">Maybe later</button>
   `;
   document.body.appendChild(el);
+  el.querySelector("#upsellOneOffBtn").addEventListener("click", () => { el.remove(); handleSubscribe("oneoff"); });
   el.querySelector("#upsellSubBtn").addEventListener("click", () => { el.remove(); handleSubscribe("subscription"); });
   el.querySelector("#upsellDismissBtn").addEventListener("click", () => el.remove());
 }
@@ -7914,10 +7843,7 @@ function setupReadingModeEvents() {
   if (!readingMode) return;
 
   if (backBtn) {
-    backBtn.addEventListener("click", () => {
-      if (isShowingSample) exitSampleStory();
-      else exitReadingMode();
-    });
+    backBtn.addEventListener("click", () => exitReadingMode());
   }
 
   if (toggleBtn) {
@@ -9473,6 +9399,19 @@ async function handleGenerate(input) {
   let idea = input?.idea || "";
   let situation = input?.situation || "";
 
+  // Self-heal: if a previous run left the UI locked (e.g. an unhandled
+  // exception escaped both try/finally blocks), and it's been long enough
+  // that no real generation could still be in flight, force-reset before
+  // honouring the in-progress guard. Without this the user would have to
+  // refresh the page to recover from any stuck state.
+  if (isGenerating && Date.now() - lastGenerationTime > 120000) {
+    console.warn("handleGenerate: clearing stuck isGenerating state");
+    isGenerating = false;
+    generationInProgress = false;
+    setGeneratingState(false);
+    hideLoading();
+  }
+
   if (isGenerating) return;
 
   const now = Date.now();
@@ -9482,9 +9421,8 @@ async function handleGenerate(input) {
   }
   lastGenerationTime = now;
 
-  setGeneratingState(true);
-
   applyModeUI(mode);
+  setGeneratingState(true);
 
   if (mode === "sleepy") {
     idea = idea || "a calm bedtime story";
@@ -9818,6 +9756,18 @@ async function handleGenerate(input) {
         generationInProgress = false;
         return;
       }
+      if (initResponse.status === 403) {
+        // Paywall: server says this user has no paid credit. Show the upsell
+        // and STOP. Do not throw to the outer catch — that path serves a free
+        // procedural story locally, which would be a free backdoor around the
+        // Stripe-confirmed payment requirement.
+        if (button) { button.disabled = false; button.textContent = originalText; }
+        generationInProgress = false;
+        const child = getSelectedChild();
+        showUpsell(child?.name);
+        if (errorData?.error) showToast(errorData.error, "info");
+        return;
+      }
       if (initResponse.status === 429) {
         const waitMins = Math.ceil((errorData.retryAfter || 300) / 60);
         throw Object.assign(
@@ -9924,6 +9874,19 @@ async function handleGenerate(input) {
 
     if (!error?.proceduralFallback) {
       console.warn("AI generation unavailable, using procedural fallback.", error);
+    }
+
+    // PAYWALL GATE: any local fallback (offline cache or procedural engine)
+    // is still a story being delivered to the user. If they have no paid
+    // credit, refuse to serve one — show the upsell and stop. Without this
+    // gate a non-paying user could put their phone offline and tap "Tell a
+    // Story" to get unlimited free local stories.
+    if (!canGenerateStory()) {
+      const child = getSelectedChild();
+      if (button) { button.disabled = false; button.textContent = originalText; }
+      generationInProgress = false;
+      showUpsell(child?.name);
+      return;
     }
 
     // OFFLINE CACHE: Before falling back to the procedural engine, check if we
@@ -10121,6 +10084,12 @@ async function handleGenerate(input) {
 
     hideLoading();
     setGeneratingState(false);
+    // The inner try/finally already clears this on the happy path, but if a
+    // throw escapes between `generationInProgress = true` and the inner try,
+    // the flag stays stuck and every subsequent click silently returns at the
+    // top guard. Always clear it here so the UI can never permanently jam.
+    generationInProgress = false;
+    try { localStorage.removeItem("dt-pending-job"); } catch {}
   }
 }
 
@@ -10241,12 +10210,6 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
-// Sample story button (landing page, no-signup demo)
-const sampleBtn = $("sampleStoryBtn");
-if (sampleBtn) {
-  sampleBtn.addEventListener("click", showSampleStory);
-}
-
 // Reading mode events
 setupReadingModeEvents();
 
@@ -10275,7 +10238,7 @@ window.closeStoryCard = closeStoryCard;
 window.handleGenerate = handleGenerate;
 window.handleSubscribe = handleSubscribe;
 window.showUpsell = showUpsell;
-window.buyOneStory = () => handleSubscribe("one-off");
+window.buyOneStory = () => handleSubscribe("oneoff");
 window.buyPremium = () => handleSubscribe("subscription");
 window.buyPack   = () => handleSubscribe("pack");
 

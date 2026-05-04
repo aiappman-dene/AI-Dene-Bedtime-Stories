@@ -122,9 +122,9 @@ If any answer is No → rewrite the specific section until it passes.
 ====================================
 STAGE 7 — LENGTH & PACING (NON-NEGOTIABLE)
 ====================================
-TARGET LENGTH: 900–1100 words. Count your words before outputting.
-- Under 850 words: incomplete — expand the journey beats or deepen the resolution.
-- Over 1150 words: too long — trim filler, tighten transitions, cut repeated imagery.
+TARGET LENGTH: 1000–1300 words. Count your words before outputting.
+- Under 950 words: incomplete — expand the journey beats or deepen the resolution.
+- Over 1350 words: too long — trim filler, tighten transitions, cut repeated imagery.
 
 PACING THE ENDING:
 - The final quarter of the story must slow down noticeably.
@@ -215,9 +215,10 @@ STRUCTURE:
 
 AGE ADAPTATION:
 - Age 2-4: Very simple words. Short sentences. Lots of repetition. Familiar things.
-- Age 5-7: Simple adventure. Clear hero journey. Magical but grounded. 400 words.
-- Age 8-10: Richer vocabulary. Deeper emotion. More complex world. 500 words.
-- Age 11-13: Sophisticated narrative. Real feelings. Meaningful themes. 600 words.
+- Age 5-7: Simple adventure. Clear hero journey. Magical but grounded.
+- Age 8-10: Richer vocabulary. Deeper emotion. More complex world.
+- Age 11-13: Sophisticated narrative. Real feelings. Meaningful themes.
+(All ages: target 1000–1300 words at an appropriate reading pace.)
 
 PERSONALISATION:
 - Weave {name} naturally throughout — not just at start
@@ -523,6 +524,19 @@ Avoid "Once upon a time", "There was a child named", or any formulaic opener.
 Each story should feel like it begins mid-breath, already inside the world.
 `;
 
+/**
+ * Returns age-appropriate word count targets.
+ * Ages 2–4  → short & magical: 400–600 words (toddler attention span)
+ * Ages 5–7  → engaging & complete: 600–900 words (early reader sweet spot)
+ * Ages 8+   → full adventure: 1000–1300 words (chapter-book feel)
+ */
+export function getAgeWordTarget(age) {
+  const n = parseInt(age, 10);
+  if (!isNaN(n) && n <= 4) return { min: 400, max: 600, under: 380, over: 650, minutes: "3–5" };
+  if (!isNaN(n) && n <= 7) return { min: 600, max: 900, under: 560, over: 950, minutes: "5–7" };
+  return { min: 1000, max: 1300, under: 950, over: 1350, minutes: "7–10" };
+}
+
 export function buildStoryPrompt({ name, age, interests, length, dialect, language, customIdea, seriesContext, childWish, appearance, dayBeats, dayMood, globalInspiration, mode }) {
   // Derive the story theme from the richest available input
   const theme = customIdea || childWish || dayBeats || interests || "magical bedtime adventure";
@@ -534,6 +548,8 @@ Custom story idea (this is the foundation — keep it central throughout):
 `
     : "";
 
+  const wt = getAgeWordTarget(age);
+
   return `
 You are a world-class children's bedtime storyteller.
 
@@ -541,11 +557,13 @@ ${DREAMTALEZ_STYLE}
 ${DREAMTALEZ_SIGNATURE}
 ${getModeIdentityPrompt(mode)}
 Child's name: ${name}
+Child's age: ${age}
 Theme: ${theme}
 
 Length:
-- 7–10 minutes reading time (~900–1100 words)
-- Do NOT exceed 1100 words. Do NOT go under 900 words.
+- ${wt.minutes} minutes reading time (~${wt.min}–${wt.max} words) — matched to this child's age
+- Do NOT exceed ${wt.max} words. Do NOT go under ${wt.min} words.
+- Shorter does not mean lesser. A perfect ${wt.min}-word story for a ${age}-year-old is far better than a padded one.
 
 Core rules (apply to all stories):
 - Use ${name}'s name naturally throughout — not just at the start. Do not repeat it too frequently; use it sparingly, the way a real author would.

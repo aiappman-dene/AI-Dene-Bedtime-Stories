@@ -101,9 +101,7 @@
             <button type="button" class="forgot-link" onclick="resetPassword()" data-i18n="forgot_password">Forgot password?</button>
           </form>
 
-          <button id="sampleStoryBtn" type="button" class="btn ghost sample-btn" data-i18n="sample_story_btn">&#9733; Read a Sample Story</button>
-
-          <p class="trust-line">7-day free trial &bull; Then &pound;3.99/month &bull; 10 stories per week &bull; No ads</p>
+          <p class="trust-line" data-i18n="trust_line">Try 1 story for 99p &bull; Then &pound;4.99/month &bull; No ads</p>
           <p class="auth-legal"><span data-i18n="auth_legal">By signing up you agree to our</span> <button type="button" class="inline-link" onclick="navigateTo('terms')" data-i18n="auth_terms">Terms</button> <span data-i18n="auth_and">and</span> <button type="button" class="inline-link" onclick="navigateTo('privacy')" data-i18n="auth_privacy">Privacy Policy</button> <span data-i18n="auth_and">and</span> <button type="button" class="inline-link" onclick="navigateTo('trust')">Trust &amp; Safety</button></p>
         </div>
       </div>
@@ -226,14 +224,15 @@
 
         <!-- Paywall -->
         <div id="paywallCard" class="card paywall-card hidden">
-          <h2>&#10024; Tonight's story is ready&hellip;</h2>
-          <p class="paywall-sub">Make it theirs.</p>
-          <p class="hint">A calm, magical bedtime story personalised just for your child &mdash; helping them relax, imagine, and drift into sleep.</p>
+          <h2>&#10024; Every night, a magical adventure</h2>
+          <p class="paywall-sub">Personalised for your child. Beautiful every time.</p>
+          <p class="hint">A calm, magical bedtime story &mdash; 7&ndash;10 minutes long, starring your child by name &mdash; helping them relax, imagine, and drift into sleep.</p>
           <button id="subscribeBtn" class="btn primary btn-lg" onclick="buyPremium()">&#127769; Unlimited Stories &mdash; &pound;4.99/month</button>
-          <p class="paywall-perks-note">Up to 2 stories every night</p>
-          <p class="paywall-conversion">Most parents choose unlimited &#10024;</p>
-          <p class="paywall-divider">or start tonight</p>
-          <button id="oneOffBtn" class="btn secondary btn-lg" onclick="buyOneStory()">&#10024; Create tonight's story &mdash; &pound;0.99</button>
+          <p class="paywall-perks-note">New story every night &middot; Full library &middot; Every mode unlocked</p>
+          <p class="paywall-conversion">The full DreamTalez experience &#10024;</p>
+          <p class="paywall-divider">or try the magic first</p>
+          <button id="oneOffBtn" class="btn secondary btn-lg" onclick="buyOneStory()">&#9733; One magical story &mdash; 99p</button>
+          <p class="paywall-perks-note">Full 7&ndash;10 min story &middot; Starring your child &middot; Same magic, one night</p>
           <button id="packBtn" class="btn ghost btn-lg paywall-pack hidden" onclick="buyPack()">&#10024; 10 more bedtime stories &mdash; &pound;1.99</button>
           <p class="hint paywall-note">Your saved stories stay yours &mdash; readable anytime.</p>
         </div>
@@ -267,7 +266,7 @@
               </div>
             </div>
             <div class="teddy-counter-wrap">
-              <button id="addTeddiesBtn" class="teddy-topup-btn" title="Add Teddies 🧸 99p" disabled>🧸 <span id="teddyCount">--</span></button>
+              <button id="addTeddiesBtn" class="teddy-topup-btn" title="Stories remaining" disabled>🧸 <span id="teddyCount">--</span></button>
             </div>
             <div id="premium-container"></div>
           </div>

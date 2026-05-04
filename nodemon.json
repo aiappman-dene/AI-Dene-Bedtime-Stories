@@ -1,6 +1,6 @@
 {
-  "watch": ["server.js", "prompts.js", "story-quality.js"],
-  "ext": "js,json",
-  "ignore": ["node_modules"],
+  "watch": ["server.js", "prompts.js", "story-quality.js", "stripe.js", ".env"],
+  "ext": "js,json,env",
+  "ignore": ["node_modules", "server.log"],
   "exec": "node server.js"
 }

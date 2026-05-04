@@ -1,13 +1,17 @@
 import dotenv from "dotenv";
-dotenv.config();
+import { fileURLToPath } from "url";
+import path from "path";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load .env from the server's own directory so the server boots correctly
+// regardless of the working directory it was started from.
+dotenv.config({ path: path.join(__dirname, ".env") });
 
 function logEvent(message) {
   console.log(`[${new Date().toISOString()}] ${message}`);
 }
-import { fileURLToPath } from "url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const PUBLIC_DIR = path.join(__dirname, "public");
 const POLISH_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
@@ -61,14 +65,36 @@ function isRateLimited(userId) {
 // =============================
 // Middleware definitions
 // =============================
+// Allowed origins are sourced from ALLOWED_ORIGINS (comma-separated) so we
+// never deploy production with cors({ origin: "*" }) — a wildcard CORS would
+// let any website on the internet trigger story generation against this
+// server using a victim's stored Firebase token, draining Claude credits.
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "")
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+
 const corsMiddleware = cors({
-  origin: "*",
+  origin(origin, callback) {
+    // No Origin header → same-origin browser request, curl, or a native
+    // mobile app (Capacitor uses capacitor:// which omits Origin). Allow it.
+    if (!origin) return callback(null, true);
+    if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    // In dev with no allowlist configured, accept anything so local testing
+    // doesn't require fiddling with env. Production preflight refuses to
+    // boot when the allowlist is empty, so this branch is dev-only.
+    if (process.env.NODE_ENV !== "production" && ALLOWED_ORIGINS.length === 0) {
+      return callback(null, true);
+    }
+    logEvent(`Blocked by CORS: ${origin}`);
+    return callback(new Error("Not allowed by CORS"));
+  },
+  credentials: true,
 });
 import { body, validationResult } from "express-validator";
 import fs from "fs";
 import https from "https";
 import crypto from "crypto";
-import path from "path";
 
 
 
@@ -98,13 +124,21 @@ import { createCheckoutSession, handleWebhook } from "./stripe.js";
 // =============================================================================
 // Environment / config
 // =============================================================================
-const API_KEY = process.env.ANTHROPIC_API_KEY || "";
-const AI_ENABLED = !!API_KEY;
+// Accept either ANTHROPIC_API_KEY (canonical) or CLAUDE_API_KEY (alias),
+// matching what .env.example documents. Trim whitespace because copy/paste
+// from dashboards often appends a stray newline that silently breaks auth.
+const API_KEY = (process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY || "").trim();
+const AI_ENABLED = API_KEY.startsWith("sk-ant-");
 const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "";
 const FIREBASE_CLIENT_EMAIL = process.env.FIREBASE_CLIENT_EMAIL || "";
 const FIREBASE_PRIVATE_KEY = (process.env.FIREBASE_PRIVATE_KEY || "").replace(/\\n/g, "\n");
 const REQUIRE_AUTH_FOR_AI_ROUTES = process.env.REQUIRE_AUTH_FOR_AI_ROUTES !== "false";
 const USE_FULL_AI_PIPELINE = process.env.USE_FULL_AI_PIPELINE === "true" || process.env.AI_PIPELINE_PROFILE === "full";
+
+// Developer accounts — credit gate is always bypassed for these emails
+const DEVELOPER_EMAILS = new Set([
+  "dene2012@hotmail.co.uk",
+]);
 
 
 // =============================
@@ -150,7 +184,7 @@ function getStoryTokenBudget(length, stage, dialect) {
   const isNonEnglish = dialect && !["en", "en-GB", "en-US", "en-gb", "en-us"].includes(dialect);
   const budgets = {
     short:  { story: 700,  editor: 700,  validator: 700,  title: 40,  delivery: 600 },
-    medium: { story: 1200, editor: 1200, validator: 1200, title: 40,  delivery: 1000 },
+    medium: { story: 1800, editor: 1800, validator: 1800, title: 40,  delivery: 1600 },
     long:   { story: 3200, editor: 3200, validator: 3200, title: 40,  delivery: 2800 },
   };
   const row = budgets[length] ?? budgets.medium;
@@ -190,6 +224,17 @@ async function ensureSubscriptionFresh(uid, userData, db) {
   await db.collection("users").doc(uid).set(reset, { merge: true });
   logEvent(`[SUBSCRIPTION] Monthly reset for ${uid}`);
   return { ...userData, ...reset };
+}
+
+// Total paid credits a user has right now — sum, not nullish-coalesce.
+// The previous `??` chain hid extras and one-offs whenever storiesRemaining
+// was 0 (a real value, not null), so a subscribed user with both buckets
+// only saw the first number. Always sum.
+function getTotalCredits(userData = {}) {
+  const subBucket = Number(userData.storiesRemaining || 0);
+  const extras   = Number(userData.extraStoryCredits || 0);
+  const oneOff   = userData.oneOffAvailable ? 1 : 0;
+  return subBucket + extras + oneOff;
 }
 
 // Consume one story credit — checks access and deducts atomically.
@@ -263,7 +308,26 @@ async function refundStory(uid, consumed, db) {
       body("last_story_summary").optional().isString().isLength({ max: 400 }).trim(),
     ],
     async (req, res) => {
+      // Hoisted so the outer catch can release activeRequests if anything
+      // throws after we acquired the lock but before the pipeline starts.
+      let uid = null;
+      let db = null;
+      let jobId = null;
+      let hasPersistentLock = false;
       try {
+        // Fail fast and visibly when AI is unconfigured, instead of accepting
+        // the request, creating a job, and letting the client poll a doomed
+        // pipeline for ~10 seconds before discovering it. This is the only
+        // path that the user-facing UI presents — silent failure here looked
+        // like a generic "story didn't generate" with no diagnostic.
+        if (!AI_ENABLED) {
+          logEvent("Rejecting /generate: AI provider not configured");
+          return res.status(503).json({
+            error: "Story generation is temporarily unavailable. Please try again shortly.",
+            reason: "ai_unconfigured",
+          });
+        }
+
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
           logEvent("Validation error: " + JSON.stringify(errors.array()));
@@ -327,7 +391,10 @@ async function refundStory(uid, consumed, db) {
         }
 
         // PAYMENT GATE
-        const uid = req.authUser?.uid;
+        // When REQUIRE_AUTH_FOR_AI_ROUTES is off (local dev) requireAiAuth sets
+        // req.authUser to null. Synthesize a stable dev uid so the rate limiter
+        // and active-request guard still work without rejecting the request.
+        uid = req.authUser?.uid || (REQUIRE_AUTH_FOR_AI_ROUTES ? null : "dev-anon");
         if (!uid) {
           return res.status(401).json({ error: "Please log in to generate stories." });
         }
@@ -344,21 +411,47 @@ async function refundStory(uid, consumed, db) {
 
         activeRequests.add(uid);
 
-        const db = getFirestoreDb();
-        const userSnap = await db.collection("users").doc(uid).get();
-        let userData = userSnap.exists ? userSnap.data() : {};
+        const isDevAccount = req.authUser?.email && DEVELOPER_EMAILS.has(req.authUser.email);
+        const isAnonDev = uid === "dev-anon";
+        // Bypass the paid-credit check ONLY for:
+        //   1. The anonymous local dev user (no Firebase, no real account)
+        //   2. Explicitly listed developer emails (DEVELOPER_EMAILS)
+        // We deliberately do NOT bypass for "any signed-in user when NODE_ENV
+        // is not production" — that previously handed free stories to anyone
+        // testing against a dev server, which contradicts the paywall promise.
+        const bypassPayment = isAnonDev || isDevAccount;
 
-        // Monthly subscription reset (idempotent — no-op if still in window)
-        userData = await ensureSubscriptionFresh(uid, userData, db);
+        // Skip Firestore entirely for the anonymous dev user — Firebase Admin
+        // may not even be configured in pure-local development, so the lookup
+        // would throw before the pipeline gets a chance to run.
+        let userData = {};
+        if (!isAnonDev) {
+          db = getFirestoreDb();
 
-        // Consume story credit (checks access, deducts atomically)
-        const consumption = await consumeStory(uid, userData, db);
+          // Persisted per-user throttle (survives restarts and scales across instances).
+          const persistentRate = await enforcePersistentUserRateLimit(uid, db);
+          if (persistentRate.limited) {
+            activeRequests.delete(uid);
+            return res.status(429).json({ error: "🌙 Let the story settle before creating another" });
+          }
+
+          const userSnap = await db.collection("users").doc(uid).get();
+          userData = userSnap.exists ? userSnap.data() : {};
+          // Monthly subscription reset (idempotent — no-op if still in window)
+          userData = await ensureSubscriptionFresh(uid, userData, db);
+        }
+
+        // Consume story credit (checks access, deducts atomically).
+        // Real users without a paid credit get a 403 below — never a free story.
+        const consumption = bypassPayment
+          ? { ok: true, consumed: null }
+          : await consumeStory(uid, userData, db);
         if (!consumption.ok) {
           activeRequests.delete(uid);
           return res.status(403).json({ error: consumption.message });
         }
 
-        logEvent(`Generating ${incomingMode} story for \"${cleanName}\" (normalized=${normalizedMode}, age ${cleanAge}), interests: \"${cleanInterests}\"${cleanIdea ? `, idea: \"${cleanIdea}\"` : ""}${cleanWish ? `, wish: \"${cleanWish}\"` : ""}, length: ${length}, dialect: ${cleanDialect}`);
+        logEvent(`[GENERATE] start uid=${uid} mode=${incomingMode}→${normalizedMode} length=${length} dialect=${cleanDialect} child="${cleanName}"`);
 
         const cleanGlobalInspiration = Array.isArray(globalInspiration)
           ? globalInspiration
@@ -380,28 +473,122 @@ async function refundStory(uid, consumed, db) {
           language: cleanLanguage,
         };
 
-        // Create job, respond immediately so the client connection can close.
-        // Phone can sleep — the pipeline keeps running on the server.
-        const jobId = createJob();
-        res.json({ jobId });
+        // Create the job record BEFORE responding. The record stores the
+        // credit bucket we just consumed, so a server restart mid-pipeline
+        // can be refunded by the sweeper from the durable record alone.
+        try {
+          if (db) {
+            const provisionalJobId = crypto.randomUUID();
+            const lock = await acquireGenerationLock(uid, provisionalJobId, db);
+            if (!lock.ok) {
+              await refundStory(uid, consumption.consumed, db).catch(refundErr =>
+                logEvent(`[REFUND] lock conflict refund failed uid=${uid}: ${refundErr.message}`)
+              );
+              activeRequests.delete(uid);
+              return res.status(429).json({ error: "✨ Your story is already being created" });
+            }
+            hasPersistentLock = true;
+            jobId = provisionalJobId;
+          }
 
-        // Run pipeline in background — result stored in jobStore for client to poll.
-        runStoryPipeline(storyInputs, { mode: normalizedMode, rawMode: incomingMode, cleanName, cleanDialect, cleanInterests, cleanIdea, cleanWish, cleanSeriesContext, cleanBeats, length })
-          .then(({ story, title }) => {
-            resolveJob(jobId, story, title);
-            activeRequests.delete(uid);
-          })
-          .catch(async (err) => {
-            logEvent(`Pipeline error for job ${jobId}: ${err.message}`);
-            activeRequests.delete(uid);
-            await refundStory(uid, consumption.consumed, db).catch(e =>
-              logEvent(`Refund error for ${uid}: ${e.message}`)
-            );
-            failJob(jobId, "story_failed");
+          jobId = await createJob({
+            uid,
+            db,
+            consumed: consumption.consumed,
+            jobId,
+            ctx: {
+              mode: normalizedMode,
+              rawMode: incomingMode,
+              length,
+              cleanName,
+              payload: {
+                storyInputs,
+                pipeline: {
+                  mode: normalizedMode,
+                  rawMode: incomingMode,
+                  cleanName,
+                  cleanDialect,
+                  cleanInterests,
+                  cleanIdea,
+                  cleanWish,
+                  cleanSeriesContext,
+                  cleanBeats,
+                  length,
+                },
+              },
+            },
           });
+
+          if (db && hasPersistentLock) {
+            await db.collection(USER_LOCKS_COLLECTION).doc(uid).set({
+              uid,
+              jobId,
+              createdAt: Date.now(),
+              expiresAt: Date.now() + GENERATION_LOCK_TTL_MS,
+            }, { merge: true });
+          }
+        } catch (e) {
+          // Job creation failed → refund inline (we never told the user we'd
+          // generate anything) and surface a 500.
+          logEvent(`[GENERATE] createJob failed for uid=${uid}: ${e.message}`);
+          activeRequests.delete(uid);
+          if (db && hasPersistentLock && uid && jobId) {
+            await releaseGenerationLock(uid, jobId, db);
+          }
+          await refundStory(uid, consumption.consumed, db).catch(refundErr =>
+            logEvent(`[REFUND] inline refund after createJob fail: ${refundErr.message}`)
+          );
+          return res.status(500).json({ error: "Something went wrong. Please try again." });
+        }
+
+        // Respond immediately so the client connection can close. Phone can
+        // sleep — the pipeline keeps running on the server. The polling
+        // endpoint reads the durable job state.
+        res.json({ jobId });
+        logEvent(`[GENERATE] job=${jobId} created uid=${uid} consumed=${consumption.consumed || "none"}`);
+        console.log({ uid, route: "/generate", jobId, status: "started", mode: incomingMode, normalizedMode, length });
+
+        // Source of truth is now Firestore jobs for real users. We process
+        // from persisted payload so restart recovery can resume in-flight work.
+        if (db) {
+          processFirestoreJob(jobId, db)
+            .catch((err) => {
+              logEvent(`[JOBS] process dispatch failed job=${jobId}: ${err.message}`);
+            })
+            .finally(() => {
+              activeRequests.delete(uid);
+            });
+        } else {
+          runStoryPipeline(storyInputs, { mode: normalizedMode, rawMode: incomingMode, cleanName, cleanDialect, cleanInterests, cleanIdea, cleanWish, cleanSeriesContext, cleanBeats, length })
+            .then(async ({ story, title }) => {
+              await resolveJob(jobId, story, title, db);
+              logEvent(`[GENERATE] job=${jobId} done uid=${uid}`);
+            })
+            .catch(async (err) => {
+              logEvent(`[GENERATE] job=${jobId} failed uid=${uid}: ${err.message}`);
+              let refunded = false;
+              try {
+                await refundStory(uid, consumption.consumed, db);
+                refunded = true;
+                logEvent(`[REFUND] job=${jobId} uid=${uid} bucket=${consumption.consumed || "none"}`);
+              } catch (refundErr) {
+                logEvent(`[REFUND] job=${jobId} uid=${uid} FAILED: ${refundErr.message}`);
+              }
+              await failJob(jobId, "story_failed", db, { refunded });
+            })
+            .finally(() => {
+              activeRequests.delete(uid);
+            });
+        }
 
       } catch (error) {
         logEvent(`Generate endpoint error: ${error.message}`);
+        // If we made it past activeRequests.add but failed before the pipeline
+        // started, the .finally above won't fire — clean up here.
+        if (uid) activeRequests.delete(uid);
+        if (db && hasPersistentLock && uid && jobId) {
+          await releaseGenerationLock(uid, jobId, db);
+        }
         res.status(500).json({ error: "Something went wrong. Please try again." });
       }
     }
@@ -525,10 +712,21 @@ function getSafeFallbackStory(name) {
   return `${name} snuggled into bed as the stars twinkled softly above.\n\nTonight was a peaceful night filled with gentle dreams, kind thoughts, and a quiet sense of magic.\n\nAs the moon smiled down, ${name} drifted into a calm and happy sleep, ready for a new adventure tomorrow.`;
 }
 
-function enforceLength(text) {
+// Returns { min, max } word bounds for a given age string.
+// These mirror getAgeWordTarget() in prompts.js but stay server-side
+// so we don't import the ES module into the validator / enforcer.
+function getAgeWordBounds(age) {
+  const n = parseInt(age, 10);
+  if (!isNaN(n) && n <= 4) return { min: 400, max: 650 };
+  if (!isNaN(n) && n <= 7) return { min: 600, max: 950 };
+  return { min: 1000, max: 1350 };
+}
+
+function enforceLength(text, age) {
   const words = text.split(" ");
-  if (words.length > 1100) {
-    return words.slice(0, 1100).join(" ");
+  const { max } = getAgeWordBounds(age);
+  if (words.length > max) {
+    return words.slice(0, max).join(" ");
   }
   return text;
 }
@@ -544,16 +742,17 @@ function polishStory(text) {
     .trim();
 }
 
-function validateStoryQuality(text) {
+function validateStoryQuality(text, age) {
   if (!text) return false;
 
   const wordCount = text.split(" ").length;
+  const wt = getAgeWordBounds(age);
 
   // Too short = weak or incomplete story
-  if (wordCount < 850) return false;
+  if (wordCount < wt.min - 50) return false;
 
-  // Too long = cost risk / rambling
-  if (wordCount > 1150) return false;
+  // Too long = padding / runaway generation
+  if (wordCount > wt.max + 50) return false;
 
   // Must contain paragraph structure
   if (!text.includes("\n")) return false;
@@ -629,22 +828,19 @@ const CLAUDE_MODEL_DEFAULT = CLAUDE_MODEL_SONNET;
 const API_VERSION = "2023-06-01";
 
 // Tiered model selection:
-//   hero / long  → Sonnet (richest prose, worth the extra seconds)
-//   medium       → Haiku  (fast, ~8–12s total, plenty for a good story)
-//   short/random → Haiku  (fastest path — bedtime shouldn't make parents wait)
-// In lean pipeline (default) this gives: Haiku×2 calls ≈ 8–14s end-to-end.
+//   All modes use Sonnet for full premium quality (7–10 min, 1000–1300 words)
+//   short only uses Haiku (legacy, not surfaced in the main UI)
 function getModelConfig({ mode, length } = {}) {
   if (mode === "hero") {
     return { model: CLAUDE_MODEL_SONNET, temperature: 0.85 };
   }
   switch (length) {
-    case "long":
-      return { model: CLAUDE_MODEL_SONNET, temperature: 0.8 };
-    case "medium":
-      return { model: CLAUDE_MODEL_HAIKU,  temperature: 0.75 };
     case "short":
+      return { model: CLAUDE_MODEL_HAIKU, temperature: 0.9 };
+    case "medium":
+    case "long":
     default:
-      return { model: CLAUDE_MODEL_HAIKU,  temperature: 0.9 };
+      return { model: CLAUDE_MODEL_SONNET, temperature: 0.8 };
   }
 }
 
@@ -725,28 +921,440 @@ async function generateWithTimeout(promise, ms = 85000) {
 }
 
 // =============================================================================
-// Job Store — in-memory, 10-minute TTL
-// Allows clients to disconnect (phone sleep) and reconnect to collect results.
+// Job Store — Firestore-backed for real users (durable across restarts),
+// in-memory only for the anonymous dev path (no Firebase Admin available).
+//
+// Durable jobs are the source of truth: the server records the credit it
+// consumed before the pipeline runs, so a crash mid-pipeline can be refunded
+// by the sweeper instead of leaving the user paid-but-storyless.
 // =============================================================================
 
-const jobStore = new Map(); // jobId → { status, story, title, error, createdAt }
-const JOB_TTL_MS = 10 * 60 * 1000;
+const JOBS_COLLECTION = "jobs";
+const JOB_STALE_MS = 10 * 60 * 1000;        // pipeline considered abandoned after this
+const JOB_SWEEP_INTERVAL_MS = 2 * 60 * 1000; // how often the sweeper runs
+const JOB_RETENTION_MS = 30 * 24 * 60 * 60 * 1000; // keep done/failed docs for 30 days for support
+const JOB_LEASE_MS = 45 * 1000; // short lease so crashed workers recover quickly
+const JOB_HEARTBEAT_MS = 15 * 1000;
+const JOB_DISPATCH_INTERVAL_MS = 20 * 1000;
+const GENERATION_LOCK_TTL_MS = 15 * 60 * 1000;
+const USER_RATE_COLLECTION = "userRateLimits";
+const USER_RATE_WINDOW_MS = 10 * 1000;
+const USER_RATE_MAX_REQUESTS = 3;
+const USER_LOCKS_COLLECTION = "generationLocks";
+const INSTANCE_ID = crypto.randomUUID();
 
-function createJob() {
-  const jobId = crypto.randomUUID();
-  jobStore.set(jobId, { status: "pending", createdAt: Date.now() });
-  setTimeout(() => jobStore.delete(jobId), JOB_TTL_MS);
+const jobStore = new Map(); // dev-anon only: jobId → { uid, status, story, title, error, createdAt }
+const processingJobs = new Set();
+
+async function createJob({ uid, db, consumed, ctx, jobId: providedJobId }) {
+  const jobId = providedJobId || crypto.randomUUID();
+  const base = {
+    uid,
+    status: "pending",
+    consumed: consumed || null,
+    createdAt: Date.now(),
+    mode: ctx?.mode || null,
+    rawMode: ctx?.rawMode || null,
+    length: ctx?.length || null,
+    childName: ctx?.cleanName || null,
+    payload: ctx?.payload || null,
+    refundedAt: null,
+    completedAt: null,
+    workerId: null,
+    leaseUntil: null,
+    lastHeartbeatAt: null,
+  };
+  if (db) {
+    await db.collection(JOBS_COLLECTION).doc(jobId).set(base);
+  } else {
+    jobStore.set(jobId, base);
+    setTimeout(() => jobStore.delete(jobId), JOB_STALE_MS);
+  }
   return jobId;
 }
 
-function resolveJob(jobId, story, title) {
-  const job = jobStore.get(jobId);
-  if (job) jobStore.set(jobId, { ...job, status: "done", story, title });
+async function resolveJob(jobId, story, title, db) {
+  const update = { status: "done", story, title, completedAt: Date.now() };
+  if (db) {
+    try {
+      await db.collection(JOBS_COLLECTION).doc(jobId).update(update);
+    } catch (e) {
+      logEvent(`resolveJob Firestore error for ${jobId}: ${e.message}`);
+    }
+  } else {
+    const job = jobStore.get(jobId);
+    if (job) jobStore.set(jobId, { ...job, ...update });
+  }
 }
 
-function failJob(jobId, errorMsg) {
-  const job = jobStore.get(jobId);
-  if (job) jobStore.set(jobId, { ...job, status: "failed", error: errorMsg });
+async function enforcePersistentUserRateLimit(uid, db) {
+  const now = Date.now();
+  const rateRef = db.collection(USER_RATE_COLLECTION).doc(uid);
+  try {
+    return await db.runTransaction(async (tx) => {
+      const snap = await tx.get(rateRef);
+      const data = snap.exists ? snap.data() : {};
+      const windowStart = Number(data.windowStart || 0);
+      const count = Number(data.count || 0);
+
+      if (!windowStart || now - windowStart >= USER_RATE_WINDOW_MS) {
+        tx.set(rateRef, {
+          windowStart: now,
+          count: 1,
+          updatedAt: now,
+          expiresAt: now + (2 * USER_RATE_WINDOW_MS),
+        }, { merge: true });
+        return { limited: false };
+      }
+
+      if (count >= USER_RATE_MAX_REQUESTS) {
+        return { limited: true };
+      }
+
+      tx.set(rateRef, {
+        windowStart,
+        count: count + 1,
+        updatedAt: now,
+        expiresAt: now + (2 * USER_RATE_WINDOW_MS),
+      }, { merge: true });
+      return { limited: false };
+    });
+  } catch (e) {
+    logEvent(`[RATE] persistent limiter failed for uid=${uid}: ${e.message}`);
+    return { limited: false };
+  }
+}
+
+async function acquireGenerationLock(uid, jobId, db) {
+  const now = Date.now();
+  const lockRef = db.collection(USER_LOCKS_COLLECTION).doc(uid);
+  try {
+    return await db.runTransaction(async (tx) => {
+      const snap = await tx.get(lockRef);
+      if (snap.exists) {
+        const lock = snap.data();
+        if ((lock.expiresAt || 0) > now) {
+          return { ok: false, existingJobId: lock.jobId || null };
+        }
+      }
+
+      tx.set(lockRef, {
+        uid,
+        jobId,
+        createdAt: now,
+        expiresAt: now + GENERATION_LOCK_TTL_MS,
+      }, { merge: true });
+      return { ok: true };
+    });
+  } catch (e) {
+    logEvent(`[LOCK] acquire failed uid=${uid}: ${e.message}`);
+    return { ok: false };
+  }
+}
+
+async function refreshGenerationLock(uid, jobId, db) {
+  const lockRef = db.collection(USER_LOCKS_COLLECTION).doc(uid);
+  const now = Date.now();
+  try {
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(lockRef);
+      if (!snap.exists) return;
+      const lock = snap.data();
+      if (lock.jobId !== jobId) return;
+      tx.update(lockRef, {
+        expiresAt: now + GENERATION_LOCK_TTL_MS,
+        updatedAt: now,
+      });
+    });
+  } catch (e) {
+    logEvent(`[LOCK] refresh failed uid=${uid} job=${jobId}: ${e.message}`);
+  }
+}
+
+async function releaseGenerationLock(uid, jobId, db) {
+  if (!uid || !db) return;
+  const lockRef = db.collection(USER_LOCKS_COLLECTION).doc(uid);
+  try {
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(lockRef);
+      if (!snap.exists) return;
+      const lock = snap.data();
+      if (lock.jobId !== jobId) return;
+      tx.delete(lockRef);
+    });
+  } catch (e) {
+    logEvent(`[LOCK] release failed uid=${uid} job=${jobId}: ${e.message}`);
+  }
+}
+
+async function claimFirestoreJob(jobId, db) {
+  const now = Date.now();
+  const jobRef = db.collection(JOBS_COLLECTION).doc(jobId);
+  try {
+    return await db.runTransaction(async (tx) => {
+      const snap = await tx.get(jobRef);
+      if (!snap.exists) return { claimed: false, reason: "missing" };
+
+      const data = snap.data();
+      if (data.status === "done" || data.status === "failed") {
+        return { claimed: false, reason: "terminal" };
+      }
+
+      const leaseUntil = Number(data.leaseUntil || 0);
+      const heldByOther = data.status === "running"
+        && leaseUntil > now
+        && data.workerId
+        && data.workerId !== INSTANCE_ID;
+
+      if (heldByOther) {
+        return { claimed: false, reason: "leased" };
+      }
+
+      tx.update(jobRef, {
+        status: "running",
+        workerId: INSTANCE_ID,
+        leaseUntil: now + JOB_LEASE_MS,
+        startedAt: data.startedAt || now,
+        lastHeartbeatAt: now,
+      });
+
+      return {
+        claimed: true,
+        data: {
+          ...data,
+          status: "running",
+          workerId: INSTANCE_ID,
+          leaseUntil: now + JOB_LEASE_MS,
+        },
+      };
+    });
+  } catch (e) {
+    logEvent(`[JOBS] claim failed for ${jobId}: ${e.message}`);
+    return { claimed: false, reason: "error" };
+  }
+}
+
+async function heartbeatFirestoreJob(jobId, db) {
+  const now = Date.now();
+  const jobRef = db.collection(JOBS_COLLECTION).doc(jobId);
+  try {
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(jobRef);
+      if (!snap.exists) return;
+      const data = snap.data();
+      if (data.status !== "running") return;
+      if (data.workerId !== INSTANCE_ID) return;
+      tx.update(jobRef, {
+        leaseUntil: now + JOB_LEASE_MS,
+        lastHeartbeatAt: now,
+      });
+    });
+  } catch (e) {
+    logEvent(`[JOBS] heartbeat failed for ${jobId}: ${e.message}`);
+  }
+}
+
+async function processFirestoreJob(jobId, db) {
+  if (!jobId || !db || processingJobs.has(jobId)) return;
+  processingJobs.add(jobId);
+
+  let heartbeat = null;
+  let claimed = null;
+  let uid = null;
+  let consumed = null;
+
+  try {
+    claimed = await claimFirestoreJob(jobId, db);
+    if (!claimed?.claimed) return;
+
+    const data = claimed.data || {};
+    uid = data.uid || null;
+    consumed = data.consumed || null;
+    const payload = data.payload || null;
+
+    if (!payload?.storyInputs || !payload?.pipeline) {
+      throw new Error("job payload missing");
+    }
+
+    heartbeat = setInterval(() => {
+      heartbeatFirestoreJob(jobId, db).catch((e) => {
+        logEvent(`[JOBS] heartbeat timer error for ${jobId}: ${e.message}`);
+      });
+      if (uid) {
+        refreshGenerationLock(uid, jobId, db).catch((e) => {
+          logEvent(`[LOCK] refresh timer error uid=${uid} job=${jobId}: ${e.message}`);
+        });
+      }
+    }, JOB_HEARTBEAT_MS);
+
+    logEvent(`[JOBS] processing job=${jobId} uid=${uid || "unknown"}`);
+    const { story, title } = await runStoryPipeline(payload.storyInputs, payload.pipeline);
+    await resolveJob(jobId, story, title, db);
+    logEvent(`[JOBS] done job=${jobId} uid=${uid || "unknown"}`);
+  } catch (err) {
+    logEvent(`[JOBS] failed job=${jobId}: ${err.message}`);
+    let refunded = false;
+    if (uid && consumed) {
+      try {
+        await refundStory(uid, consumed, db);
+        refunded = true;
+        logEvent(`[REFUND] job=${jobId} uid=${uid} bucket=${consumed}`);
+      } catch (refundErr) {
+        logEvent(`[REFUND] job=${jobId} uid=${uid} FAILED: ${refundErr.message}`);
+      }
+    }
+    await failJob(jobId, "story_failed", db, { refunded });
+  } finally {
+    if (heartbeat) clearInterval(heartbeat);
+    if (uid) {
+      await releaseGenerationLock(uid, jobId, db);
+    }
+    processingJobs.delete(jobId);
+  }
+}
+
+async function dispatchPendingJobs() {
+  if (!hasFirebaseAdminConfigured()) return;
+  let db;
+  try { db = getFirestoreDb(); } catch { return; }
+
+  try {
+    const snap = await db.collection(JOBS_COLLECTION)
+      .where("status", "in", ["pending", "running"])
+      .limit(20)
+      .get();
+
+    for (const doc of snap.docs) {
+      processFirestoreJob(doc.id, db).catch((e) => {
+        logEvent(`[JOBS] dispatch error for ${doc.id}: ${e.message}`);
+      });
+    }
+  } catch (e) {
+    logEvent(`[JOBS] dispatch query error: ${e.message}`);
+  }
+}
+
+async function failJob(jobId, errorMsg, db, { refunded = false } = {}) {
+  const update = {
+    status: "failed",
+    error: errorMsg || null,
+    completedAt: Date.now(),
+  };
+  if (refunded) update.refundedAt = Date.now();
+  if (db) {
+    try {
+      await db.collection(JOBS_COLLECTION).doc(jobId).update(update);
+    } catch (e) {
+      logEvent(`failJob Firestore error for ${jobId}: ${e.message}`);
+    }
+  } else {
+    const job = jobStore.get(jobId);
+    if (job) jobStore.set(jobId, { ...job, ...update });
+  }
+}
+
+// Read a job for the polling endpoint. Verifies the requesting uid owns the
+// job (anyone querying someone else's jobId gets `forbidden`, never the data).
+async function loadJob(jobId, requestingUid) {
+  // In-memory first (cheap; covers dev-anon and freshly-created jobs).
+  const mem = jobStore.get(jobId);
+  if (mem) {
+    if (mem.uid && requestingUid && mem.uid !== requestingUid) {
+      return { status: "forbidden" };
+    }
+    return mem;
+  }
+  // Firestore lookup for real users.
+  if (!hasFirebaseAdminConfigured()) return { status: "expired" };
+  try {
+    const db = getFirestoreDb();
+    const snap = await db.collection(JOBS_COLLECTION).doc(jobId).get();
+    if (!snap.exists) return { status: "expired" };
+    const data = snap.data();
+    if (requestingUid && data.uid && data.uid !== requestingUid) {
+      return { status: "forbidden" };
+    }
+    return {
+      status: data.status,
+      story: data.story || null,
+      title: data.title || null,
+      error: data.error || null,
+    };
+  } catch (e) {
+    logEvent(`loadJob error for ${jobId}: ${e.message}`);
+    return { status: "expired" };
+  }
+}
+
+function hasFirebaseAdminConfigured() {
+  return !!(
+    (FIREBASE_PROJECT_ID && FIREBASE_CLIENT_EMAIL && FIREBASE_PRIVATE_KEY) ||
+    process.env.GOOGLE_APPLICATION_CREDENTIALS ||
+    FIREBASE_PROJECT_ID
+  );
+}
+
+// Sweeper — finds pending jobs older than JOB_STALE_MS and refunds them.
+// Runs both on startup and on a setInterval. Uses a Firestore transaction
+// to be safe across multiple server instances: only one sweeper per job
+// will flip status from pending → failed and trigger the refund.
+async function sweepStalePendingJobs() {
+  if (!hasFirebaseAdminConfigured()) return;
+  let db;
+  try { db = getFirestoreDb(); } catch { return; }
+
+  const cutoff = Date.now() - JOB_STALE_MS;
+  const now = Date.now();
+  let stale;
+  try {
+    stale = await db.collection(JOBS_COLLECTION)
+      .where("status", "in", ["pending", "running"])
+      .where("createdAt", "<", cutoff)
+      .limit(20)
+      .get();
+  } catch (e) {
+    // Most likely a missing composite index on (status, createdAt).
+    // Logged once per sweep so the operator notices and creates the index.
+    logEvent(`Sweeper query error (likely missing Firestore index status+createdAt): ${e.message}`);
+    return;
+  }
+
+  for (const doc of stale.docs) {
+    const data = doc.data();
+    let didRefund = false;
+    try {
+      didRefund = await db.runTransaction(async (tx) => {
+        const fresh = await tx.get(doc.ref);
+        if (!fresh.exists) return false;
+        const d = fresh.data();
+        if (d.status !== "pending" && d.status !== "running") return false;
+        if (d.status === "running" && Number(d.leaseUntil || 0) > now) return false;
+        if (d.refundedAt) return false;
+        tx.update(doc.ref, {
+          status: "failed",
+          error: "abandoned_by_server",
+          completedAt: Date.now(),
+          refundedAt: Date.now(),
+        });
+        return true;
+      });
+    } catch (e) {
+      logEvent(`Sweeper transaction error for ${doc.id}: ${e.message}`);
+      continue;
+    }
+    if (didRefund && data.consumed) {
+      try {
+        await refundStory(data.uid, data.consumed, db);
+        await releaseGenerationLock(data.uid, doc.id, db);
+        logEvent(`[SWEEPER] Refunded abandoned job ${doc.id} for uid=${data.uid} bucket=${data.consumed}`);
+      } catch (e) {
+        logEvent(`[SWEEPER] Refund failed for ${doc.id}: ${e.message}`);
+      }
+    } else if (didRefund) {
+      await releaseGenerationLock(data.uid, doc.id, db);
+      logEvent(`[SWEEPER] Marked job ${doc.id} failed (no credit consumed; nothing to refund)`);
+    }
+  }
 }
 
 // Retry wrapper: calls callClaudeWithRetry up to (retries+1) times, validates each
@@ -959,6 +1567,39 @@ app.post(
 // =============================================================================
 
 // =============================================================================
+// Teddy top-up / credit status endpoint
+// =============================================================================
+app.options("/api/teddy-topup", corsMiddleware);
+app.get("/api/teddy-topup", corsMiddleware, requireAiAuth, async (req, res) => {
+  const uid = req.authUser?.uid;
+  const email = req.authUser?.email || "";
+  const isDevAccount = DEVELOPER_EMAILS.has(email);
+  // Anonymous local dev (REQUIRE_AUTH_FOR_AI_ROUTES=false) — no Firestore lookup.
+  // Treat as premium so the local UI works, but never apply this branch in prod
+  // (preflightCheck refuses to boot in prod when REQUIRE_AUTH_FOR_AI_ROUTES=false).
+  if (!uid) return res.json({ teddies_remaining: 999, teddies_last_reset: null, is_premium: true });
+
+  try {
+    const db = getFirestoreDb();
+    const userSnap = await db.collection("users").doc(uid).get();
+    const userData = userSnap.exists ? userSnap.data() : {};
+    const remaining = getTotalCredits(userData);
+    // Premium = active subscription OR an explicitly listed developer account.
+    // We deliberately do NOT trust NODE_ENV here — that bypass would let any
+    // signed-in user against a dev server appear premium client-side.
+    const isPremium = !!(userData.isSubscribed || userData.isPremium || isDevAccount);
+    return res.json({
+      teddies_remaining: remaining,
+      teddies_last_reset: userData.subscriptionStartDate || null,
+      is_premium: isPremium,
+    });
+  } catch (e) {
+    logEvent(`teddy-topup error: ${e.message}`);
+    return res.json({ teddies_remaining: null, teddies_last_reset: null, is_premium: isDevAccount });
+  }
+});
+
+// =============================================================================
 // Stripe — checkout + webhook
 // =============================================================================
 
@@ -1032,7 +1673,7 @@ async function runStoryPipeline(storyInputs, { mode, rawMode, cleanName, cleanDi
     if (!USE_FULL_AI_PIPELINE) {
       logEvent(`Stage 2 complete (edit) for "${cleanName}" [lean pipeline, attempt ${attempt}]`);
       const candidate = finalizeStoryLocally(editedStory, cleanDialect, `Final story for ${cleanName}`);
-      if (validateStoryQuality(candidate)) {
+      if (validateStoryQuality(candidate, storyInputs.age)) {
         finalStory = candidate;
         cleanTitle = `${cleanName}'s Bedtime Story`;
         break;
@@ -1087,7 +1728,7 @@ async function runStoryPipeline(storyInputs, { mode, rawMode, cleanName, cleanDi
   }
 
   // Enforce word limit and polish whitespace
-  finalStory = enforceLength(finalStory);
+  finalStory = enforceLength(finalStory, storyInputs.age);
   finalStory = polishStory(finalStory);
 
   if (!cleanTitle) cleanTitle = `${cleanName}'s Bedtime Story`;
@@ -1107,17 +1748,101 @@ async function runStoryPipeline(storyInputs, { mode, rawMode, cleanName, cleanDi
 // =============================================================================
 
 app.options("/api/job/:jobId", corsMiddleware);
-app.get("/api/job/:jobId", corsMiddleware, (req, res) => {
+app.get("/api/job/:jobId", corsMiddleware, requireAiAuth, async (req, res) => {
   const { jobId } = req.params;
   if (!/^[0-9a-f-]{36}$/.test(jobId)) return res.status(400).json({ status: "invalid" });
-  const job = jobStore.get(jobId);
-  if (!job) return res.json({ status: "expired" });
+  // requestingUid is null in pure-anon dev (REQUIRE_AUTH_FOR_AI_ROUTES=false).
+  // loadJob enforces uid match when both are present, so a real user can
+  // never read another user's job — they get { status: "forbidden" }.
+  const requestingUid = req.authUser?.uid || null;
+  const job = await loadJob(jobId, requestingUid);
+  if (job.status === "forbidden") return res.status(403).json({ status: "forbidden" });
   res.json(job);
 });
 
 // =============================
 // SERVER START (PRODUCTION SAFE + AUTO PORT)
 // =============================
+
+// Pre-flight: refuse to boot in production without the things that would
+// silently break the product — Claude key, Firebase Admin credentials,
+// allowed origins, and (if Stripe is wired) the webhook secret. Each of
+// these has a "looks fine, fails for users" mode that's worse than crashing.
+function preflightCheck() {
+  const isProd = process.env.NODE_ENV === "production";
+  const fatal = [];
+  const warn = [];
+
+  // Claude key — required everywhere; in dev we warn instead of exit so the
+  // rest of the app still boots for UI work.
+  if (!AI_ENABLED) {
+    const reason = !API_KEY
+      ? "ANTHROPIC_API_KEY (or CLAUDE_API_KEY) is missing from the environment"
+      : "ANTHROPIC_API_KEY does not look like a valid Claude key (expected sk-ant-…)";
+    (isProd ? fatal : warn).push(`AI: ${reason}`);
+  }
+
+  // Firebase Admin — needed for token verification and credit accounting.
+  // Production must have one of: full service-account triple, GOOGLE_APPLICATION_CREDENTIALS,
+  // or at minimum FIREBASE_PROJECT_ID. Without any of these, /generate cannot
+  // verify tokens and consumeStory cannot read user docs.
+  const hasFirebaseAdmin =
+    (FIREBASE_PROJECT_ID && FIREBASE_CLIENT_EMAIL && FIREBASE_PRIVATE_KEY) ||
+    !!process.env.GOOGLE_APPLICATION_CREDENTIALS ||
+    !!FIREBASE_PROJECT_ID;
+  if (isProd && !hasFirebaseAdmin) {
+    fatal.push("Firebase Admin: set FIREBASE_PROJECT_ID (+ FIREBASE_CLIENT_EMAIL/FIREBASE_PRIVATE_KEY) or GOOGLE_APPLICATION_CREDENTIALS");
+  }
+
+  // CORS — production must restrict origins. Wide-open CORS lets any site
+  // burn your Claude credits using a victim's stored Firebase token.
+  if (isProd && ALLOWED_ORIGINS.length === 0) {
+    fatal.push("CORS: ALLOWED_ORIGINS is empty — production must list explicit HTTPS origins");
+  }
+
+  // Stripe webhook — if Stripe secret is set we MUST also have the webhook
+  // signing secret, otherwise anyone can POST a forged checkout.session.completed
+  // and grant themselves credits.
+  if (process.env.STRIPE_SECRET && !process.env.STRIPE_WEBHOOK_SECRET) {
+    (isProd ? fatal : warn).push("Stripe: STRIPE_WEBHOOK_SECRET is required when STRIPE_SECRET is set");
+  } else if (!process.env.STRIPE_SECRET) {
+    warn.push("Stripe: STRIPE_SECRET not set — payments disabled");
+  }
+
+  // Auth — production must require authenticated requests on AI routes.
+  if (isProd && !REQUIRE_AUTH_FOR_AI_ROUTES) {
+    fatal.push("Auth: REQUIRE_AUTH_FOR_AI_ROUTES is false in production — every request would be treated as anonymous dev");
+  }
+
+  if (warn.length) {
+    for (const w of warn) console.warn(`⚠️  ${w}`);
+  }
+  if (fatal.length) {
+    for (const f of fatal) console.error(`❌ FATAL: ${f}`);
+    console.error(`\nRefusing to start. Fix the items above and redeploy.\n`);
+    process.exit(1);
+  }
+
+  if (AI_ENABLED) {
+    console.log(`✅ AI configured (key ends …${API_KEY.slice(-6)}, pipeline=${USE_FULL_AI_PIPELINE ? "full" : "lean"})`);
+  }
+  console.log(`✅ CORS origins: ${ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS.join(", ") : "(open — dev only)"}`);
+}
+
+preflightCheck();
+
+// Refund sweeper: catch jobs whose pipeline never finished (server crash,
+// OOM, deploy mid-flight) and return the credit to the user. Runs once on
+// boot, then on a 2-minute interval. Multi-instance safe via Firestore tx.
+dispatchPendingJobs().catch(e => logEvent(`Initial job dispatch error: ${e.message}`));
+setInterval(() => {
+  dispatchPendingJobs().catch(e => logEvent(`Job dispatch error: ${e.message}`));
+}, JOB_DISPATCH_INTERVAL_MS);
+
+sweepStalePendingJobs().catch(e => logEvent(`Initial sweeper run error: ${e.message}`));
+setInterval(() => {
+  sweepStalePendingJobs().catch(e => logEvent(`Sweeper run error: ${e.message}`));
+}, JOB_SWEEP_INTERVAL_MS);
 
 const DEFAULT_PORT = 3000;
 

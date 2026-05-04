@@ -64,10 +64,22 @@ export async function handleWebhook(req, res) {
   const stripe = getStripe();
   if (!stripe) return res.json({ received: true });
 
-  let event;
   const sig = req.headers["stripe-signature"];
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
+  const isProd = process.env.NODE_ENV === "production";
 
+  // Webhook signature verification is the only thing that proves an event
+  // really came from Stripe. Without it, anyone can POST a forged
+  // checkout.session.completed and grant themselves a year of free stories.
+  if (!secret) {
+    if (isProd) {
+      console.error("Webhook rejected: STRIPE_WEBHOOK_SECRET is not configured.");
+      return res.status(500).json({ error: "Stripe webhook not configured" });
+    }
+    console.warn("⚠️  Stripe webhook running without signature verification (dev only).");
+  }
+
+  let event;
   if (secret && sig) {
     try {
       event = stripe.webhooks.constructEvent(req.body, sig, secret);
@@ -75,20 +87,74 @@ export async function handleWebhook(req, res) {
       console.error("Webhook signature error:", err.message);
       return res.status(400).json({ error: "Webhook signature invalid" });
     }
-  } else {
-    // Dev: trust raw parsed body
+  } else if (!isProd) {
+    // Dev-only: trust the raw parsed body so the Stripe CLI test-events flow works.
     try { event = JSON.parse(req.body); } catch { event = req.body; }
+  } else {
+    // Prod with secret set but no signature header → reject.
+    return res.status(400).json({ error: "Missing stripe-signature header" });
   }
 
-  if (event.type === "checkout.session.completed") {
-    const session = event.data.object;
-    const uid = session.metadata?.uid;
-    const type = session.metadata?.type;
+  let db = null;
+  let eventRef = null;
+  let markedProcessing = false;
 
-    if (uid) {
-      try {
-        if (!getApps().length) throw new Error("Firebase Admin not initialised");
-        const db = getFirestore();
+  if (getApps().length) {
+    db = getFirestore();
+  }
+
+  // Idempotency — Stripe may deliver duplicates or retries.
+  // We only treat an event as final after business logic succeeds.
+  if (event?.id && db) {
+    eventRef = db.collection("stripeEvents").doc(event.id);
+    try {
+      const gate = await db.runTransaction(async (tx) => {
+        const existing = await tx.get(eventRef);
+        const now = Date.now();
+
+        if (existing.exists) {
+          const data = existing.data() || {};
+          const state = data.state || "processed";
+          if (state === "processed") {
+            return { duplicate: true, reason: "processed" };
+          }
+          // Another worker may still be processing this exact event.
+          if (state === "processing" && (now - Number(data.startedAt || 0)) < 5 * 60 * 1000) {
+            return { duplicate: true, reason: "inflight" };
+          }
+        }
+
+        tx.set(eventRef, {
+          state: "processing",
+          type: event.type,
+          livemode: !!event.livemode,
+          startedAt: now,
+          updatedAt: now,
+        }, { merge: true });
+        return { duplicate: false };
+      });
+
+      if (gate.duplicate) {
+        console.log(`[Stripe] duplicate event ${event.id} (${event.type}) state=${gate.reason}`);
+        return res.json({ received: true, duplicate: true });
+      }
+      markedProcessing = true;
+    } catch (err) {
+      console.error(`[Stripe] idempotency check failed for ${event.id}: ${err.message}`);
+      return res.status(500).json({ error: "Idempotency check failed" });
+    }
+  }
+
+  try {
+    if (event.type === "checkout.session.completed") {
+      const session = event.data.object;
+      const uid = session.metadata?.uid;
+      const type = session.metadata?.type;
+
+      console.log(`[Stripe] checkout.session.completed eventId=${event.id} uid=${uid} type=${type}`);
+
+      if (uid) {
+        if (!db) throw new Error("Firebase Admin not initialised");
         const userRef = db.collection("users").doc(uid);
 
         // Always store the Stripe customer ID so we can look up the user later
@@ -118,17 +184,12 @@ export async function handleWebhook(req, res) {
         } else if (Object.keys(baseUpdate).length) {
           await userRef.set(baseUpdate, { merge: true });
         }
-      } catch (err) {
-        console.error("Firestore update error:", err.message);
       }
     }
-  }
 
-  if (event.type === "customer.subscription.deleted") {
-    const customerId = event.data.object.customer;
-    try {
-      if (!getApps().length) throw new Error("Firebase Admin not initialised");
-      const db = getFirestore();
+    if (event.type === "customer.subscription.deleted") {
+      const customerId = event.data.object.customer;
+      if (!db) throw new Error("Firebase Admin not initialised");
       const snapshot = await db.collection("users")
         .where("stripeCustomerId", "==", customerId)
         .limit(1)
@@ -144,10 +205,30 @@ export async function handleWebhook(req, res) {
       } else {
         console.warn(`[Stripe] cancellation received but no user found for customer ${customerId}`);
       }
-    } catch (err) {
-      console.error("Firestore cancellation error:", err.message);
     }
-  }
 
-  res.json({ received: true });
+    if (eventRef && markedProcessing) {
+      await eventRef.set({
+        state: "processed",
+        processedAt: Date.now(),
+        updatedAt: Date.now(),
+      }, { merge: true });
+    }
+
+    res.json({ received: true });
+  } catch (err) {
+    console.error(`[Stripe] webhook processing failed for ${event?.id || "unknown"}: ${err.message}`);
+    if (eventRef && markedProcessing) {
+      try {
+        await eventRef.set({
+          state: "failed",
+          error: err.message,
+          updatedAt: Date.now(),
+        }, { merge: true });
+      } catch (markErr) {
+        console.error(`[Stripe] failed to mark webhook failure for ${event?.id || "unknown"}: ${markErr.message}`);
+      }
+    }
+    return res.status(500).json({ error: "Webhook processing failed" });
+  }
 }

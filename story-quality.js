@@ -168,13 +168,25 @@ export function detectStoryQualityIssues(text, { dialect } = {}) {
 
   // Accept standard Latin punctuation AND common non-Latin equivalents:
   // 。(CJK fullstop)  ！？(fullwidth)  ۔(Urdu/Arabic)  ।(Hindi danda)  」(CJK quote)
-  // Dialogue-ending paragraphs (contain a quote mark) are always valid.
-  // Allow 1 imperfect paragraph to avoid false failures on non-English or dialogue-heavy stories.
-  const VALID_END_PUNCT = /[.!?"\u3002\uff01\uff1f\u06D4\u0964\u300D]$/;
+  // Also accept literary devices commonly used by Claude Sonnet:
+  //   '  ’  (single/right-single quote — British dialogue close, e.g. 'Goodnight,' she said.)
+  //   …      (ellipsis — dramatic pause, trailing thought)
+  //   —      (em dash — interruption or dramatic break)
+  // Dialogue-ending paragraphs (contain any quote mark) are always valid.
+  // Threshold: allow up to 15% of paragraphs to be imperfect (min 1 free pass).
+  const VALID_END_PUNCT = /[.!?'"\u2018\u2019\u2026\u2014\u3002\uff01\uff1f\u06D4\u0964\u300D]$/;
   const badParagraphs = paragraphs.filter(
-    (p) => !VALID_END_PUNCT.test(p) && !p.includes('"') && !p.includes('\u300C') && !p.includes('\u300E')
+    (p) =>
+      !VALID_END_PUNCT.test(p) &&
+      !p.includes('"') &&
+      !p.includes("'") &&
+      !p.includes('\u2018') &&
+      !p.includes('\u2019') &&
+      !p.includes('\u300C') &&
+      !p.includes('\u300E')
   );
-  if (badParagraphs.length > 1) {
+  const allowedBadParagraphs = Math.max(1, Math.floor(paragraphs.length * 0.15));
+  if (badParagraphs.length > allowedBadParagraphs) {
     issues.push("At least one paragraph is missing proper ending punctuation.");
   }
 
@@ -205,12 +217,14 @@ export function detectStoryQualityIssues(text, { dialect } = {}) {
 
 // Simple boolean validator — used by the pipeline fallback guard and tests.
 // Less strict than assertStoryQuality: allows 1 imperfect paragraph and dialogue lines.
-export function isStoryValid(text) {
-  if (!text || text.length < 200) return false;
+// minLength is age-adaptive: toddler stories can be 400 words; the caller may
+// pass a lower floor. Default 200 is a safe fallback for any age.
+export function isStoryValid(text, { minLength = 200 } = {}) {
+  if (!text || text.length < minLength) return false;
   const paragraphs = text.split("\n").map((p) => p.trim()).filter(Boolean);
   if (paragraphs.length < 2) return false;
   const validParagraphs = paragraphs.filter(
-    (p) => /[.!?]$/.test(p) || p.includes('"') || p.length > 40
+    (p) => /[.!?'"\u2026\u2014]$/.test(p) || p.includes('"') || p.includes("'") || p.length > 40
   );
   return validParagraphs.length >= paragraphs.length - 1;
 }
