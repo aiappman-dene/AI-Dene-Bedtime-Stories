@@ -6355,7 +6355,13 @@ function openGuestOneoffPrompt(sessionId) {
     }
 
     try {
-      showLoading("Creating your story...");
+        // Show loading state inside the modal so user sees feedback immediately
+        const genBtn = modal.querySelector("#guestOneoffGenerate");
+        const laterBtn = modal.querySelector("#guestOneoffLater");
+        const panel = modal.querySelector(".guest-oneoff-panel");
+        if (genBtn) { genBtn.disabled = true; genBtn.textContent = "✨ Writing your story…"; }
+        if (laterBtn) laterBtn.disabled = true;
+        if (panel) panel.style.opacity = "0.8";
       const res = await fetchWithTimeout(`${API_BASE}/api/guest/generate-oneoff`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
