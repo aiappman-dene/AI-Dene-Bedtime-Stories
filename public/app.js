@@ -6349,19 +6349,19 @@ function openGuestOneoffPrompt(sessionId) {
   modal.querySelector("#guestOneoffGenerate")?.addEventListener("click", async () => {
     const name = (modal.querySelector("#guestChildName")?.value || "").trim();
     const gender = modal.querySelector("#guestChildGender")?.value || "neutral";
+    const genBtn = modal.querySelector("#guestOneoffGenerate");
+    const laterBtn = modal.querySelector("#guestOneoffLater");
+    const panel = modal.querySelector(".guest-oneoff-panel");
     if (!name) {
       showToast("Please add your child's first name", "info");
       return;
     }
 
     try {
-        // Show loading state inside the modal so user sees feedback immediately
-        const genBtn = modal.querySelector("#guestOneoffGenerate");
-        const laterBtn = modal.querySelector("#guestOneoffLater");
-        const panel = modal.querySelector(".guest-oneoff-panel");
-        if (genBtn) { genBtn.disabled = true; genBtn.textContent = "✨ Writing your story…"; }
-        if (laterBtn) laterBtn.disabled = true;
-        if (panel) panel.style.opacity = "0.8";
+      // Show loading state inside the modal so user sees feedback immediately
+      if (genBtn) { genBtn.disabled = true; genBtn.textContent = "✨ Writing your story…"; }
+      if (laterBtn) laterBtn.disabled = true;
+      if (panel) panel.style.opacity = "0.8";
       const res = await fetchWithTimeout(`${API_BASE}/api/guest/generate-oneoff`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -6393,6 +6393,12 @@ function openGuestOneoffPrompt(sessionId) {
     } catch (error) {
       showToast(error.message || "Could not generate story", "error");
     } finally {
+      // If generation fails and modal is still open, restore controls.
+      if (modal.isConnected) {
+        if (genBtn) { genBtn.disabled = false; genBtn.textContent = "Create magical story"; }
+        if (laterBtn) laterBtn.disabled = false;
+        if (panel) panel.style.opacity = "1";
+      }
       hideLoading();
     }
   });
