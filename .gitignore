@@ -1,6 +1,10 @@
 node_modules/
 .env
 *.log
+server.log
+hs_err_pid*.log
+replay_pid*.log
+*.png.png
 .DS_Store
 Thumbs.db
 .claude/

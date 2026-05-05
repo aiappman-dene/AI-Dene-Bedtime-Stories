@@ -37,7 +37,12 @@ let currentLang = 'en';
 
 export const i18n = {
   setLang: (lang) => { currentLang = translations[lang] ? lang : 'en'; },
-  t: (key) => translations[currentLang][key] || translations['en'][key] || key,
+  // Delegate to main.js t() when available (full 11-language table).
+  // Falls back to the small local dict so early callers still get a value.
+  t: (key) => {
+    if (typeof window.__t === 'function') return window.__t(key);
+    return translations[currentLang]?.[key] || translations['en']?.[key] || key;
+  },
 };
 
 window.i18n = i18n; // For global access in HTML inline scripts
