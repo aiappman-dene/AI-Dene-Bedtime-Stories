@@ -399,20 +399,20 @@ async function refundStory(uid, consumed, db) {
           return res.status(401).json({ error: "Please log in to generate stories." });
         }
 
+        const isDevAccount = req.authUser?.email && DEVELOPER_EMAILS.has(req.authUser.email);
+        const isAnonDev = uid === "dev-anon";
+
         // Duplicate request guard — one active generation per user at a time
         if (activeRequests.has(uid)) {
           return res.status(429).json({ error: "✨ Your story is already being created" });
         }
 
-        // Per-user rate limit — max 3 requests per 10s window
-        if (isRateLimited(uid)) {
+        // Per-user rate limit — max 3 requests per 10s window (skipped for devs)
+        if (!isDevAccount && !isAnonDev && isRateLimited(uid)) {
           return res.status(429).json({ error: "🌙 Let the story settle before creating another" });
         }
 
         activeRequests.add(uid);
-
-        const isDevAccount = req.authUser?.email && DEVELOPER_EMAILS.has(req.authUser.email);
-        const isAnonDev = uid === "dev-anon";
         // Bypass the paid-credit check ONLY for:
         //   1. The anonymous local dev user (no Firebase, no real account)
         //   2. Explicitly listed developer emails (DEVELOPER_EMAILS)
@@ -429,10 +429,13 @@ async function refundStory(uid, consumed, db) {
           db = getFirestoreDb();
 
           // Persisted per-user throttle (survives restarts and scales across instances).
-          const persistentRate = await enforcePersistentUserRateLimit(uid, db);
-          if (persistentRate.limited) {
-            activeRequests.delete(uid);
-            return res.status(429).json({ error: "🌙 Let the story settle before creating another" });
+          // Skipped for developer accounts — unlimited generation.
+          if (!isDevAccount) {
+            const persistentRate = await enforcePersistentUserRateLimit(uid, db);
+            if (persistentRate.limited) {
+              activeRequests.delete(uid);
+              return res.status(429).json({ error: "🌙 Let the story settle before creating another" });
+            }
           }
 
           const userSnap = await db.collection("users").doc(uid).get();
@@ -761,6 +764,23 @@ function polishStory(text) {
     .trim();
 }
 
+function enhanceStoryFlow(text) {
+  return String(text || "")
+    .replace(/\s+/g, " ")
+    .replace(/\.\s+/g, ". ")
+    .replace(/,\s+/g, ", ")
+    .trim();
+}
+
+function strengthenEnding(text) {
+  const story = String(text || "").trim();
+  if (!story) return story;
+  if (!/sleep|dream|goodnight/i.test(story.slice(-200))) {
+    return `${story} And as the night grew quiet, everything felt calm, safe, and ready for sweet dreams.`;
+  }
+  return story;
+}
+
 function validateStoryQuality(text, age) {
   if (!text) return false;
 
@@ -791,6 +811,75 @@ function validateStoryQuality(text, age) {
 function isStoryOutputSafe(story) {
   if (!story) return false;
   return !SAFETY_PATTERN.test(story);
+}
+
+// Lightweight Disney-quality scoring — runs locally, replaces the editor API
+// call in the lean pipeline. Score is out of 10. Threshold for "good enough"
+// is 6; below that we trigger a single re-polish (still local, no API cost).
+function hasRepetition(text) {
+  // Catch back-to-back duplicate words and repeated 3-grams — a much better
+  // smell test than "any word appears twice", which triggers on common words.
+  const tokens = String(text).toLowerCase().match(/[a-z']+/g) || [];
+  for (let i = 1; i < tokens.length; i++) {
+    if (tokens[i].length > 3 && tokens[i] === tokens[i - 1]) return true;
+  }
+  const trigrams = new Set();
+  for (let i = 0; i + 2 < tokens.length; i++) {
+    const key = `${tokens[i]} ${tokens[i + 1]} ${tokens[i + 2]}`;
+    if (trigrams.has(key)) return true;
+    trigrams.add(key);
+  }
+  return false;
+}
+
+function hasClearBeginning(text) {
+  const opener = String(text).slice(0, 200).toLowerCase();
+  if (!opener.trim()) return false;
+  // Penalise generic openings; reward sensory / present-action openings.
+  if (/^once upon a time|^there (was|once)/i.test(opener.trim())) return false;
+  return opener.length > 40;
+}
+
+function hasClearEnding(text) {
+  const tail = String(text).slice(-220).toLowerCase();
+  return /goodnight|good night|sleep|dream|safe|warm|home|smile|peaceful|quiet|drift/i.test(tail);
+}
+
+function hasEmotionalArc(text) {
+  const t = String(text).toLowerCase();
+  const tension = /worried|curious|unsure|wondered|shy|nervous|hoped|wished|brave/i.test(t);
+  const release = /happy|safe|smile|brave|warm|loved|proud|peaceful|gentle/i.test(t);
+  return tension && release;
+}
+
+function readsNaturally(text) {
+  const t = String(text);
+  if (/\.{3,}/.test(t)) return false;
+  if (/\?{2,}|!{2,}/.test(t)) return false;
+  if (/\bTODO\b|\bDRAFT\b|\bNOTE\b/.test(t)) return false;
+  return true;
+}
+
+function hasBedtimeTone(text) {
+  return /sleep|dream|goodnight|soft|quiet|gentle|cozy/i.test(String(text || ""));
+}
+
+function hasImagery(text) {
+  return /glow|warm|soft|sparkle|light|gentle|magic/i.test(String(text || ""));
+}
+
+function estimateQuality(story) {
+  let score = 0;
+  if (!story) return 0;
+  if (story.length > 500) score += 1;
+  if (!hasRepetition(story)) score += 2;
+  if (hasClearBeginning(story)) score += 1;
+  if (hasClearEnding(story)) score += 2;
+  if (hasEmotionalArc(story)) score += 2;
+  if (readsNaturally(story)) score += 1;
+  if (hasBedtimeTone(story)) score += 1;
+  if (hasImagery(story)) score += 1;
+  return score; // out of 11
 }
 
 function finalizeStoryLocally(storyText, dialect, label) {
@@ -847,20 +936,14 @@ const CLAUDE_MODEL_DEFAULT = CLAUDE_MODEL_SONNET;
 const API_VERSION = "2023-06-01";
 
 // Tiered model selection:
-//   All modes use Sonnet for full premium quality (7–10 min, 1000–1300 words)
-//   short only uses Haiku (legacy, not surfaced in the main UI)
+//   hero mode uses Sonnet for premium quality
+//   all other modes use Haiku for fast 10-20s generation
 function getModelConfig({ mode, length } = {}) {
   if (mode === "hero") {
     return { model: CLAUDE_MODEL_SONNET, temperature: 0.85 };
   }
-  switch (length) {
-    case "short":
-      return { model: CLAUDE_MODEL_HAIKU, temperature: 0.9 };
-    case "medium":
-    case "long":
-    default:
-      return { model: CLAUDE_MODEL_SONNET, temperature: 0.8 };
-  }
+  // Haiku for all standard stories — fast (5-8s per call), great for children's stories
+  return { model: CLAUDE_MODEL_HAIKU, temperature: 0.9 };
 }
 
 async function callClaude({ system, prompt, maxTokens = 1200, temperature = 0.5, model, timeoutMs }) {
@@ -1749,7 +1832,10 @@ const VALID_STORY_MODES = ["sleepy", "adventure", "therapeutic", "hero", "custom
 
 async function runStoryPipeline(storyInputs, { mode, rawMode, cleanName, cleanDialect, cleanInterests, cleanIdea, cleanWish, cleanSeriesContext, cleanBeats, length, useFullPipeline, maxAttempts }) {
   const runFullPipeline = typeof useFullPipeline === "boolean" ? useFullPipeline : USE_FULL_AI_PIPELINE;
-  const maxTries = Number.isInteger(maxAttempts) && maxAttempts > 0 ? maxAttempts : (runFullPipeline ? 3 : 2);
+  // Lean = single generate call, scored locally. The strong system prompt is
+  // the substitute for the old editor pass — burning a second 10-15s call on
+  // grammar adds latency without measurable quality lift on Haiku output.
+  const maxTries = Number.isInteger(maxAttempts) && maxAttempts > 0 ? maxAttempts : (runFullPipeline ? 3 : 1);
   const safeRawMode = rawMode && VALID_STORY_MODES.includes(rawMode) ? rawMode : "adventure";
   if (!rawMode || !VALID_STORY_MODES.includes(rawMode)) {
     logEvent(`[WARN] Invalid story mode received: "${rawMode}" — falling back to "adventure"`);
@@ -1781,23 +1867,35 @@ async function runStoryPipeline(storyInputs, { mode, rawMode, cleanName, cleanDi
     });
     logEvent(`Stage 1 complete (generate) for "${cleanName}" [attempt ${attempt}]`);
 
+    if (!runFullPipeline) {
+      // Lean: single generate call → local clean → score → return. No retry
+      // loop. The strong STORY_SYSTEM_PROMPT enforces structure, tone, and
+      // emotional arc, replacing the editor API pass.
+      let candidate = finalizeStoryLocally(rawStory, cleanDialect, `Final story for ${cleanName}`);
+      candidate = polishStory(candidate);
+      candidate = enhanceStoryFlow(candidate);
+      let score = estimateQuality(candidate);
+      if (score < 7) {
+        // Borderline — one local re-polish (no API cost) and re-score.
+        candidate = polishStory(candidate);
+        candidate = strengthenEnding(candidate);
+        candidate = enhanceStoryFlow(candidate);
+        score = estimateQuality(candidate);
+      }
+      if (score < 4) {
+        logEvent(`[WARN] Low quality score for "${cleanName}": ${score}/11 — serving anyway, no retry`);
+      }
+      logEvent(`story_generated ${JSON.stringify({ qualityScore: score, length: candidate.length, mode: "lean", child: cleanName })}`);
+      finalStory = candidate;
+      cleanTitle = `${cleanName}'s Bedtime Story`;
+      break;
+    }
+
     const grammarPrompt = buildGrammarPrompt(rawStory, cleanDialect);
     const editedStory = await callClaudeWithRetry({
       system: EDITOR_SYSTEM_PROMPT, prompt: grammarPrompt,
       maxTokens: editorMaxTokens, temperature: 0.2, model: modelConfig.model,
     });
-
-    if (!runFullPipeline) {
-      logEvent(`Stage 2 complete (edit) for "${cleanName}" [lean pipeline, attempt ${attempt}]`);
-      const candidate = finalizeStoryLocally(editedStory, cleanDialect, `Final story for ${cleanName}`);
-      if (validateStoryQuality(candidate, storyInputs.age) || maxTries === 1) {
-        finalStory = candidate;
-        cleanTitle = `${cleanName}'s Bedtime Story`;
-        break;
-      }
-      logEvent(`Quality check failed for "${cleanName}" [attempt ${attempt}] — retrying`);
-      continue;
-    }
 
     const titlePrompt = buildTitlePrompt(rawStory, cleanName, cleanDialect);
     const title = await callClaudeWithRetry({

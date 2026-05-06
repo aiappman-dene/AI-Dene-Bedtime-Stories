@@ -14,6 +14,22 @@ function between(startMarker, endMarker) {
   return source.slice(start, end);
 }
 
+function betweenAny(startMarker, endMarkers) {
+  const start = source.indexOf(startMarker);
+  if (start === -1) {
+    throw new Error(`Could not find start marker: ${startMarker}`);
+  }
+
+  for (const marker of endMarkers) {
+    const end = source.indexOf(marker, start);
+    if (end !== -1 && end > start) {
+      return source.slice(start, end);
+    }
+  }
+
+  throw new Error(`Could not extract segment between ${startMarker} and any of: ${endMarkers.join(", ")}`);
+}
+
 function createSeededRandom(seed) {
   let state = (Number(seed) || 1) >>> 0;
   return function seededRandom() {
@@ -30,7 +46,11 @@ function createSeededMath(seed) {
 
 function createQaContext(seed, dialect = "en-GB") {
   const script = [
-    between("const DIALECT_BRITISH = \"en-GB\";", "// =============================================================================\n// Reading Mode"),
+    betweenAny("const DIALECT_BRITISH = \"en-GB\";", [
+      "// =============================================================================\n// Reading Mode",
+      "\n// Reading Mode",
+      "\n// READING MODE",
+    ]),
     `
 globalThis.__qa = {
   themeWorlds,
@@ -39,6 +59,7 @@ globalThis.__qa = {
   applyDialectToText,
   findQuickWishMatchedWorld,
   normalizeDiscoveryEntry,
+  getFlyingSceneLibrary,
 };
 `,
   ].join("\n\n");
@@ -104,6 +125,20 @@ function paragraphShowsGoalMechanism(paragraph, goal, discovery) {
   return mentionsGoal && mentionsDiscovery && hasMechanismVerb;
 }
 
+function getExpectedDiscoveryEntries(context, theme, world) {
+  const baseDiscoveries = Array.isArray(world?.discoveries) ? world.discoveries : [];
+
+  if (theme !== "flying" || typeof context.__qa.getFlyingSceneLibrary !== "function") {
+    return baseDiscoveries;
+  }
+
+  const sceneLibrary = context.__qa.getFlyingSceneLibrary();
+  const flyingDiscoveries = Object.values(sceneLibrary || {})
+    .flatMap((scene) => Array.isArray(scene?.world?.discoveries) ? scene.world.discoveries : []);
+
+  return [...baseDiscoveries, ...flyingDiscoveries];
+}
+
 function assertProceduralWorldStory({ context, theme, dialect, world, story, seed }) {
   const paragraphs = collectParagraphs(story);
   const goalOptions = Array.isArray(world.goal) ? world.goal : [world.goal];
@@ -111,7 +146,7 @@ function assertProceduralWorldStory({ context, theme, dialect, world, story, see
     .map((goal) => context.__qa.applyDialectToText(goal, dialect))
     .find((goal) => includesIgnoreCase(story, goal));
   const discoveryGoal = matchingGoal || goalOptions[0] || "";
-  const discoveries = world.discoveries
+  const discoveries = getExpectedDiscoveryEntries(context, theme, world)
     .map((entry) => context.__qa.normalizeDiscoveryEntry(entry, { goal: discoveryGoal }))
     .filter((item) => item.text);
 
@@ -156,11 +191,11 @@ for (const [theme] of allThemes) {
 }
 
 const quickWishCases = [
-  { wish: "flying", expectedTheme: "space" },
+  { wish: "flying", expectedTheme: "flying" },
   { wish: "swimming", expectedTheme: "ocean" },
-  { wish: "flying over dolphins", expectedTheme: "ocean" },
+  { wish: "flying over dolphins", expectedTheme: "flying" },
   { wish: "through egypt", expectedTheme: "places" },
-  { wish: "flying through egypt", expectedTheme: "places" },
+  { wish: "flying through egypt", expectedTheme: "flying" },
 ];
 
 for (const { wish, expectedTheme } of quickWishCases) {

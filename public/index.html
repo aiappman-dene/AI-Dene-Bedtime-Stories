@@ -784,25 +784,31 @@
     <!-- ================================================================== -->
     <!-- LOADING OVERLAY (global)                                            -->
     <!-- ================================================================== -->
-    <div id="loadingOverlay" class="hidden loading-overlay">
+    <div id="story-loading" class="loading-overlay hidden" aria-live="polite" aria-busy="true">
       <div class="loading-content">
-        <div class="loading-stars">
-          <span class="star star-1">&#9733;</span>
-          <span class="star star-2">&#9733;</span>
-          <span class="star star-3">&#9733;</span>
-        </div>
-        <p class="loading-text" data-i18n="loading_text">Writing your story...</p>
-        <p id="loadingStep" class="loading-step"></p>
-        <div class="skeleton-story" aria-hidden="true">
-          <div class="skeleton-line sk-title"></div>
-          <div class="skeleton-line"></div>
-          <div class="skeleton-line sk-short"></div>
-          <div class="skeleton-line sk-medium"></div>
-          <div class="skeleton-line"></div>
-          <div class="skeleton-line sk-short"></div>
-          <div class="skeleton-line sk-medium"></div>
-        </div>
-        <p class="loading-sub" data-i18n="loading_sub">This usually takes 10–20 seconds</p>
+        <div class="glow-orb" aria-hidden="true"></div>
+        <p class="loading-title" data-i18n="loading_text">Creating your story...</p>
+        <p class="loading-sub" data-i18n="loading_sub">This will only take a moment ✨</p>
+      </div>
+    </div>
+
+    <!-- ================================================================== -->
+    <!-- PAYWALL MODAL                                                      -->
+    <!-- ================================================================== -->
+    <div id="paywall" class="paywall hidden" aria-modal="true" role="dialog" aria-labelledby="paywallTitle">
+      <div class="paywall-card">
+        <h2 id="paywallTitle">Unlock More Stories</h2>
+        <p>Create magical bedtime stories anytime.</p>
+
+        <button class="btn primary btn-lg" onclick="handleSubscribe('subscription')">
+          £4.99 / month — Unlimited Stories
+        </button>
+
+        <button class="btn secondary btn-lg" onclick="handleSubscribe('pack')">
+          10 Stories for £1.99
+        </button>
+
+        <button class="btn ghost" onclick="closePaywall()">Maybe later</button>
       </div>
     </div>
 

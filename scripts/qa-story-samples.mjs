@@ -13,14 +13,35 @@ function between(startMarker, endMarker) {
   return source.slice(start, end);
 }
 
+function betweenAny(startMarker, endMarkers) {
+  const start = source.indexOf(startMarker);
+  if (start === -1) {
+    throw new Error(`Could not find start marker: ${startMarker}`);
+  }
+
+  for (const marker of endMarkers) {
+    const end = source.indexOf(marker, start);
+    if (end !== -1 && end > start) {
+      return source.slice(start, end);
+    }
+  }
+
+  throw new Error(`Could not extract segment between ${startMarker} and any of: ${endMarkers.join(", ")}`);
+}
+
 const script = [
-  between("const DIALECT_BRITISH = \"en-GB\";", "// =============================================================================\n// Reading Mode"),
+  betweenAny("const DIALECT_BRITISH = \"en-GB\";", [
+    "// =============================================================================\n// Reading Mode",
+    "\n// Reading Mode",
+    "\n// READING MODE",
+  ]),
   `
 globalThis.__qa = {
   themeWorlds,
   generateQuickStory,
   formatStory,
   applyDialectToText,
+  getFlyingSceneLibrary,
 };
 `,
 ].join("\n\n");
@@ -110,6 +131,47 @@ function normalizeDiscoveryItem(entry) {
   };
 }
 
+function getExpectedDiscoveriesForWorld(context, theme, world) {
+  const baseDiscoveries = (Array.isArray(world?.discoveries) ? world.discoveries : [])
+    .map(normalizeDiscoveryItem)
+    .filter((item) => item.text);
+
+  if (theme !== "flying" || typeof context.__qa.getFlyingSceneLibrary !== "function") {
+    return baseDiscoveries;
+  }
+
+  const sceneLibrary = context.__qa.getFlyingSceneLibrary();
+  const flyingDiscoveries = Object.values(sceneLibrary || {})
+    .flatMap((scene) => Array.isArray(scene?.world?.discoveries) ? scene.world.discoveries : [])
+    .map(normalizeDiscoveryItem)
+    .filter((item) => item.text);
+
+  const byText = new Map();
+  for (const item of [...baseDiscoveries, ...flyingDiscoveries]) {
+    byText.set(item.text.toLowerCase(), item);
+  }
+
+  return Array.from(byText.values());
+}
+
+function getExpectedCompanionsForWorld(context, theme, world) {
+  const baseCompanions = (Array.isArray(world?.companions) ? world.companions : [])
+    .map((item) => String(item || "").trim())
+    .filter(Boolean);
+
+  if (theme !== "flying" || typeof context.__qa.getFlyingSceneLibrary !== "function") {
+    return baseCompanions;
+  }
+
+  const sceneLibrary = context.__qa.getFlyingSceneLibrary();
+  const flyingCompanions = Object.values(sceneLibrary || {})
+    .flatMap((scene) => Array.isArray(scene?.world?.companions) ? scene.world.companions : [])
+    .map((item) => String(item || "").trim())
+    .filter(Boolean);
+
+  return Array.from(new Set([...baseCompanions, ...flyingCompanions]));
+}
+
 function discoveryMentionAdvancesStory(paragraph, discovery) {
   const text = String(paragraph || "");
   if (!includesIgnoreCase(text, discovery)) return false;
@@ -140,7 +202,8 @@ function paragraphShowsGoalMechanism(paragraph, goal, discovery) {
 
 function assertStoryQuality({ context, theme, dialect, story, world }) {
   const paragraphs = collectParagraphs(story);
-  const discoveries = world.discoveries.map(normalizeDiscoveryItem).filter((item) => item.text);
+  const discoveries = getExpectedDiscoveriesForWorld(context, theme, world);
+  const companions = getExpectedCompanionsForWorld(context, theme, world);
 
   if (!story) fail(`${theme} (${dialect}) produced an empty story.`);
   if (/\{[A-Za-z][A-Za-z0-9_]*\}/.test(story)) fail(`${theme} (${dialect}) still contains placeholders.`);
@@ -203,7 +266,7 @@ function assertStoryQuality({ context, theme, dialect, story, world }) {
       }
     }
   }
-  if (!world.companions.some((item) => includesIgnoreCase(story, item) || includesIgnoreCase(story, context.__qa.applyDialectToText(item, dialect)))) {
+  if (!companions.some((item) => includesIgnoreCase(story, item) || includesIgnoreCase(story, context.__qa.applyDialectToText(item, dialect)))) {
     fail(`${theme} (${dialect}) never names a concrete companion introduction.`);
   }
   if (dialect === "en-US" && /\b(prioritise|favourite|colour|mum|cosy|travelling)\b/i.test(story)) {

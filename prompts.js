@@ -632,14 +632,52 @@ export function getAgeWordTarget(age) {
 }
 
 export function buildStoryPrompt({ name, age, interests, length, dialect, language, customIdea, seriesContext, childWish, appearance, dayBeats, dayMood, globalInspiration, mode }) {
+  const effectiveMode = mode || (customIdea ? "hero" : dayBeats ? "today" : "random");
   // Derive the story theme from the richest available input
   const theme = customIdea || childWish || dayBeats || interests || "magical bedtime adventure";
 
-  const heroCustomBlock = (mode === "hero" || mode === "custom" || mode === "create") && customIdea
+  const heroCustomBlock = (effectiveMode === "hero" || effectiveMode === "custom" || effectiveMode === "create") && customIdea
     ? `
-Custom story idea (this is the foundation — keep it central throughout):
+CUSTOM STORY IDEA (MANDATORY — FOLLOW EXACTLY):
 "${customIdea}"
 `
+    : "";
+
+  const seriesContinuityBlock = seriesContext
+    ? `
+SERIES CONTINUITY:
+"${seriesContext}"
+- Keep recurring world logic, companion identity, and emotional thread coherent unless tonight's idea intentionally changes them.
+`
+    : "";
+
+  const todayReflectionBlock = dayBeats
+    ? `
+STORY FROM TODAY (REAL LIFE → GENTLE REFLECTION):
+"${dayBeats}"
+How would a loving grandparent retell today as a bedtime story?
+${dayMood ? `Today's emotional tone: ${dayMood}. Keep it gentle and reassuring.
+` : ""}`
+    : "";
+
+  const wishText = String(childWish || "").trim();
+  const wishTokenCount = wishText ? wishText.split(/\s+/).filter(Boolean).length : 0;
+  const wishSpecificityLines = wishText
+    ? wishTokenCount >= 2
+      ? `
+- preserve ALL major parts together when realising the wish.
+- "flying over dolphins" should include both the flying action and dolphins below.
+`
+      : `
+- Keep the exact wish action central from start to finish.
+- "flying" should not become merely "space" or "birds".
+`
+    : "";
+  const wishBlock = wishText
+    ? `
+TONIGHT'S MAIN STORY PROMISE:
+"${wishText}"
+${wishSpecificityLines}`
     : "";
 
   const wt = getAgeWordTarget(age);
@@ -649,7 +687,7 @@ You are a world-class children's bedtime storyteller.
 
 ${DREAMTALEZ_STYLE}
 ${DREAMTALEZ_SIGNATURE}
-${getModeIdentityPrompt(mode)}
+${getModeIdentityPrompt(effectiveMode)}
 Child's name: ${name}
 Child's age: ${age}
 Theme: ${theme}
@@ -668,6 +706,9 @@ Core rules (apply to all stories):
 - The final paragraph must feel like a gentle emotional landing — softer, slower, and quieter than everything before it.
 - The final sentence should feel like a calm exhale: simple, warm, and complete. Never abrupt. Never rushed.
 ${heroCustomBlock}
+${seriesContinuityBlock}
+${todayReflectionBlock}
+${wishBlock}
 Return only the story text.
 `;
 }

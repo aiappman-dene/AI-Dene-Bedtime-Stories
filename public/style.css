@@ -1338,42 +1338,25 @@ select {
   inset: 0;
   z-index: 9998;
 
-  background: radial-gradient(
-    circle at top,
-    rgba(99, 102, 241, 0.25),
-    rgba(0, 0, 0, 0.6)
-  );
+  background: rgba(10, 10, 20, 0.75);
 
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
 
   display: flex;
   align-items: center;
   justify-content: center;
   flex-direction: column;
-
-  animation: breathe 4s ease-in-out infinite;
 }
 
 .loading-overlay::before {
   content: "";
   position: absolute;
   inset: 0;
-  background-image: radial-gradient(white 1px, transparent 1px);
-  background-size: 40px 40px;
-  opacity: 0.08;
-  animation: starsMove 20s linear infinite;
+  background: radial-gradient(circle at 20% 20%, rgba(255, 214, 255, 0.1), transparent 42%),
+              radial-gradient(circle at 78% 78%, rgba(160, 196, 255, 0.12), transparent 50%);
+  opacity: 1;
   pointer-events: none;
-}
-
-@keyframes breathe {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.85; }
-}
-
-@keyframes starsMove {
-  from { transform: translateY(0); }
-  to { transform: translateY(-200px); }
 }
 
 @supports not ((backdrop-filter: blur(12px)) or (-webkit-backdrop-filter: blur(12px))) {
@@ -1385,63 +1368,34 @@ select {
 .loading-content {
   text-align: center;
   position: relative;
+  color: #fff;
 }
 
-/* Glowing orb behind loading stars */
-.loading-content::before {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 160px;
-  height: 160px;
+.glow-orb {
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(123, 97, 255, 0.22) 0%, rgba(255, 110, 199, 0.08) 50%, transparent 70%);
-  animation: pulseOrb 2s ease-in-out infinite alternate;
-  pointer-events: none;
+  background: radial-gradient(circle, #ffd6ff, #a0c4ff);
+  animation: floatGlow 2s ease-in-out infinite;
+  margin: 0 auto 16px;
 }
 
-@keyframes pulseOrb {
-  from { transform: translate(-50%, -50%) scale(0.9); opacity: 0.6; }
-  to   { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+@keyframes floatGlow {
+  0% { transform: translateY(0px) scale(0.95); }
+  50% { transform: translateY(-10px) scale(1.05); }
+  100% { transform: translateY(0px) scale(0.95); }
 }
 
-.loading-stars {
-  margin-bottom: 20px;
-  position: relative;
-  z-index: 1;
-}
-
-.star {
-  font-size: 1.8rem;
-  color: var(--gold);
-  display: inline-block;
-  margin: 0 6px;
-  animation: float 1.6s ease-in-out infinite;
-  filter: drop-shadow(0 0 6px rgba(255,199,95,0.5));
-}
-
-.star-1 { animation-delay: 0s; }
-.star-2 { animation-delay: 0.3s; }
-.star-3 { animation-delay: 0.6s; }
-
-@keyframes float {
-  0%, 100% { transform: translateY(0);    opacity: 0.65; }
-  50%       { transform: translateY(-14px); opacity: 1; }
-}
-
-.loading-text {
-  font-size: 1.2rem;
-  font-weight: 800;
-  color: var(--gold);
-  margin-bottom: 6px;
-  text-shadow: 0 0 20px rgba(255, 208, 96, 0.4);
+.loading-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
 }
 
 .loading-sub {
-  font-size: 0.88rem;
-  color: var(--text-muted);
+  font-size: 14px;
+  opacity: 0.7;
+  margin-top: 8px;
 }
 
 /* =============================================================================
@@ -3346,6 +3300,18 @@ select {
   opacity: 0;
 }
 
+.story-line {
+  opacity: 0;
+  transform: translateY(10px);
+  transition: all 0.6s ease;
+  margin-bottom: 8px;
+}
+
+.story-line.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 .secondary {
   opacity: 0.6;
   font-size: 14px;
@@ -3893,6 +3859,44 @@ select.guest-oneoff-input option {
 
 .upsell-panel #upsellDismissBtn {
   margin-top: 2px;
+}
+
+.paywall {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(10, 10, 20, 0.75);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+.paywall > .paywall-card {
+  width: min(520px, 100%);
+  text-align: center;
+  border-radius: 22px;
+  padding: 26px 20px;
+  border: 1px solid rgba(246, 196, 83, 0.28);
+  background: linear-gradient(160deg, rgba(18, 14, 36, 0.96), rgba(31, 22, 56, 0.96));
+  box-shadow: 0 24px 56px rgba(0, 0, 0, 0.45);
+}
+
+.paywall > .paywall-card h2 {
+  margin: 0 0 8px;
+  color: #f8d482;
+}
+
+.paywall > .paywall-card p {
+  color: rgba(255, 255, 255, 0.82);
+  margin: 0 0 16px;
+}
+
+.paywall > .paywall-card .btn {
+  width: 100%;
+  margin-top: 10px;
 }
 
 @media (max-width: 560px) {

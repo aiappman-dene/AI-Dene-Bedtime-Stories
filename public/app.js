@@ -8117,11 +8117,16 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 90000) {
   }
 }
 
-// Poll /api/job/:jobId every 3s until the story is ready (max 5 min).
+// Poll /api/job/:jobId until the story is ready (max 5 min).
+// First check fires after 800ms so a fast lean job is visible quickly,
+// then every 1500ms — short enough to feel snappy, long enough to avoid
+// thrashing Firestore reads.
 async function pollJob(jobId, maxWaitMs = 5 * 60 * 1000) {
   const start = Date.now();
+  let delay = 800;
   while (Date.now() - start < maxWaitMs) {
-    await new Promise((r) => setTimeout(r, 3000));
+    await new Promise((r) => setTimeout(r, delay));
+    delay = 1500;
     try {
       const res = await fetch(`${API_BASE}/api/job/${jobId}`);
       const data = await res.json();
@@ -8519,11 +8524,11 @@ function updateHomeChildCard() {
   const heroSection = document.querySelector('.home-hero');
   if (heroSection) {
     const g = (child.gender || "").toLowerCase();
-    let bgUrl = "/images/girl-hero.png.png";
+    let bgUrl = "/images/girl-hero.png";
     if (g === "boy" || g === "male") {
-      bgUrl = "/images/boy-hero.png.png";
+      bgUrl = "/images/boy-hero.png";
     } else if (g === "girl" || g === "female") {
-      bgUrl = "/images/girl-hero.png.png";
+      bgUrl = "/images/girl-hero.png";
     }
     heroSection.style.backgroundImage = `url('${bgUrl}')`;
     heroSection.style.backgroundSize = 'cover';
@@ -8713,8 +8718,8 @@ const LOADING_MESSAGES = [
 ];
 
 function showLoading(message = "✨ Weaving a little magic...") {
-  const overlay = document.getElementById("loadingOverlay");
-  const text = document.querySelector(".loading-text");
+  const overlay = document.getElementById("story-loading") || document.getElementById("loadingOverlay");
+  const text = document.querySelector(".loading-title") || document.querySelector(".loading-text");
 
   if (text) text.textContent = message;
   document.body.style.overflow = "hidden";
@@ -8724,13 +8729,13 @@ function showLoading(message = "✨ Weaving a little magic...") {
   let i = 0;
   loadingInterval = setInterval(() => {
     i = (i + 1) % LOADING_MESSAGES.length;
-    const el = document.querySelector(".loading-text");
+    const el = document.querySelector(".loading-title") || document.querySelector(".loading-text");
     if (el) el.textContent = LOADING_MESSAGES[i];
   }, 3500);
 }
 
 function hideLoading() {
-  const overlay = document.getElementById("loadingOverlay");
+  const overlay = document.getElementById("story-loading") || document.getElementById("loadingOverlay");
 
   if (loadingInterval) { clearInterval(loadingInterval); loadingInterval = null; }
   document.body.style.overflow = "";
